@@ -422,13 +422,25 @@ function fmtVal(v, metric) {
   return typeof v === 'number' ? v.toFixed(2) : String(v);
 }
 
-/* Get annual metric value for a bank (annual_metrics uses display names) */
+/* Ticker -> annual_metrics key mapping (annual data uses short names, not full display names) */
+const ANNUAL_NAME_MAP = {
+  SBIN:'SBI', HDFCB:'HDFC', ICICIBC:'ICICI', AXSB:'Axis', KMB:'KMB', IIB:'Indusind',
+  BOB:'BoB', PNB:'PNB', CBK:'Canara', UNBK:'Union', BoI:'BoI', INBK:'Indian', IOB:'IoB',
+  UCO:'UCO', BOMH:'Bank of Maha', CBOI:'Central bank', PJSB:'Punjab and Sind', FB:'FB',
+  CUBK:'CUBK', KVB:'KVB', SIB:'SIB', KBL:'KBL', DCBB:'DCB', RBL:'RBL', YES:'Yes',
+  AUBANK:'AU SFB', BANDHAN:'Bandhan', EQUITASB:'Equitas SFB', UJJIVANS:'Ujjivan SFB',
+  IDFCFB:'IDFC First', IDBI:'IDBI', TMB:'TMB', PSB:'PSB', J_K:'J&K',
+  Allahabad:'Allahabad', Andhra:'Andhra', Corporation:'Corporation', Dena:'Dena',
+  OBC:'OBC', Syndicate:'Syndicate', United:'United', Vijaya:'Vijaya'
+};
+
+/* Get annual metric value for a bank */
 function getAnnualMetric(metricName, ticker, year) {
   const am = DATA.annual_metrics;
   if (!am || !am[metricName]) return null;
-  const displayName = DATA.meta.bank_display_names[ticker];
-  if (!displayName || !am[metricName][displayName]) return null;
-  return am[metricName][displayName][String(year)] ?? null;
+  const annualName = ANNUAL_NAME_MAP[ticker];
+  if (!annualName || !am[metricName][annualName]) return null;
+  return am[metricName][annualName][String(year)] ?? null;
 }
 
 /* Format annual metric value based on metric group */
