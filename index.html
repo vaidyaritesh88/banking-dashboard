@@ -6,113 +6,1304 @@
 <title>Indian Banking Dashboard</title>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
+/* ═══════════════════════ CSS CUSTOM PROPERTIES ═══════════════════════ */
 :root {
-  --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
-  --text: #e2e8f0; --text2: #94a3b8; --accent: #3b82f6;
-  --accent2: #60a5fa; --green: #22c55e; --red: #ef4444;
-  --orange: #f97316; --purple: #a78bfa; --sidebar-w: 240px;
+  --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --dimmed: #94a3b8;
+  --accent: #3b82f6; --accent2: #10b981; --border: #334155; --hover: #334155;
+  --alt-row: #1a2538; --green: #22c55e; --red: #ef4444; --sidebar-w: 230px;
 }
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); display:flex; min-height:100vh; }
-#sidebar { width:var(--sidebar-w); background:var(--bg2); border-right:1px solid var(--bg3); padding:20px 0; position:fixed; top:0; left:0; bottom:0; overflow-y:auto; z-index:100; }
-#sidebar h1 { font-size:15px; padding:0 16px 16px; border-bottom:1px solid var(--bg3); color:var(--accent2); letter-spacing:0.5px; }
-#sidebar h1 span { font-size:10px; color:var(--text2); display:block; margin-top:4px; }
-.nav-item { padding:10px 16px; cursor:pointer; font-size:13px; color:var(--text2); border-left:3px solid transparent; transition:all 0.15s; }
-.nav-item:hover { background:var(--bg3); color:var(--text); }
-.nav-item.active { background:rgba(59,130,246,0.1); color:var(--accent2); border-left-color:var(--accent); font-weight:600; }
-.nav-section { font-size:10px; text-transform:uppercase; color:var(--text2); padding:16px 16px 6px; letter-spacing:1px; opacity:0.7; }
-#main { margin-left:var(--sidebar-w); flex:1; padding:24px; max-width:1400px; }
+[data-theme="light"] {
+  --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --dimmed: #64748b;
+  --accent: #2563eb; --accent2: #059669; --border: #cbd5e1; --hover: #e2e8f0;
+  --alt-row: #f8fafc; --green: #16a34a; --red: #dc2626;
+}
+
+/* ═══════════════════════ RESET & BODY ═══════════════════════ */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); display:flex; min-height:100vh; font-size:13px; transition: background 0.2s, color 0.2s; }
+
+/* ═══════════════════════ SIDEBAR ═══════════════════════ */
+#sidebar { width: var(--sidebar-w); background: var(--card); border-right:1px solid var(--border); position:fixed; top:0; left:0; bottom:0; overflow-y:auto; z-index:100; display:flex; flex-direction:column; }
+.sidebar-header { padding:16px 14px 12px; border-bottom:1px solid var(--border); }
+.sidebar-header h1 { font-size:14px; font-weight:700; color: var(--accent); letter-spacing:0.3px; line-height:1.3; }
+.sidebar-header .sub { font-size:10px; color: var(--dimmed); margin-top:3px; }
+.nav-section { font-size:9px; text-transform:uppercase; letter-spacing:1.2px; color: var(--dimmed); padding:14px 14px 5px; opacity:0.8; font-weight:600; }
+.nav-item { padding:8px 14px; cursor:pointer; font-size:12px; color: var(--dimmed); border-left:3px solid transparent; transition:all 0.12s; user-select:none; }
+.nav-item:hover { background: var(--hover); color: var(--text); }
+.nav-item.active { background: rgba(59,130,246,0.1); color: var(--accent); border-left-color: var(--accent); font-weight:600; }
+.sidebar-footer { margin-top:auto; padding:10px 14px; border-top:1px solid var(--border); }
+#theme-toggle { background: var(--border); color: var(--text); border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:11px; width:100%; }
+#theme-toggle:hover { background: var(--accent); color:#fff; }
+
+/* ═══════════════════════ MAIN ═══════════════════════ */
+#main { margin-left: var(--sidebar-w); flex:1; padding:20px 24px; min-width:0; }
 .page { display:none; }
 .page.active { display:block; }
-.controls { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; padding:14px; background:var(--bg2); border-radius:8px; border:1px solid var(--bg3); align-items:center; }
-.controls label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
-.controls select, .controls input { background:var(--bg3); color:var(--text); border:1px solid #475569; border-radius:4px; padding:6px 10px; font-size:13px; }
-.controls select { min-width:160px; }
-.ctrl-group { display:flex; flex-direction:column; gap:4px; }
-.pill-group { display:flex; gap:4px; flex-wrap:wrap; }
-.pill { padding:4px 10px; border-radius:12px; font-size:11px; cursor:pointer; border:1px solid var(--bg3); color:var(--text2); background:transparent; transition:all 0.15s; }
-.pill:hover { border-color:var(--accent); color:var(--accent2); }
-.pill.active { background:var(--accent); color:#fff; border-color:var(--accent); }
-.chart-row { display:grid; gap:16px; margin-bottom:16px; }
-.chart-row.cols-2 { grid-template-columns:1fr 1fr; }
-.chart-row.cols-3 { grid-template-columns:1fr 1fr 1fr; }
-.chart-row.cols-1 { grid-template-columns:1fr; }
-.chart-box { background:var(--bg2); border:1px solid var(--bg3); border-radius:8px; padding:12px; }
-.chart-box h3 { font-size:13px; color:var(--text2); margin-bottom:8px; font-weight:500; }
-.chart-box .plotly-chart { width:100%; min-height:340px; }
-.data-table { width:100%; border-collapse:collapse; font-size:12px; }
-.data-table th { background:var(--bg3); color:var(--text2); padding:8px 10px; text-align:right; font-weight:600; position:sticky; top:0; font-size:11px; text-transform:uppercase; }
-.data-table th:first-child { text-align:left; }
-.data-table td { padding:6px 10px; border-bottom:1px solid rgba(51,65,85,0.5); text-align:right; }
-.data-table td:first-child { text-align:left; font-weight:500; color:var(--accent2); }
-.data-table tr:hover { background:rgba(59,130,246,0.05); }
-.table-wrap { max-height:500px; overflow-y:auto; border-radius:8px; border:1px solid var(--bg3); }
-.loading { text-align:center; padding:60px; color:var(--text2); }
-.loading::after { content:''; display:block; width:28px; height:28px; margin:16px auto; border:3px solid var(--bg3); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+.page-title { font-size:17px; font-weight:700; margin-bottom:3px; }
+.page-sub { font-size:11px; color: var(--dimmed); margin-bottom:14px; }
+
+/* ═══════════════════════ CONTROLS ═══════════════════════ */
+.controls { background: var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:16px; }
+.ctrl-row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px; }
+.ctrl-row:last-child { margin-bottom:0; }
+.ctrl-label { font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color: var(--dimmed); font-weight:600; margin-right:4px; white-space:nowrap; }
+
+/* Preset buttons */
+.preset-btn { padding:4px 10px; border-radius:4px; font-size:10px; cursor:pointer; border:1px solid var(--border); color: var(--dimmed); background:transparent; font-weight:600; transition:all 0.12s; text-transform:uppercase; letter-spacing:0.3px; }
+.preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+.preset-btn.active { background: var(--accent); color:#fff; border-color: var(--accent); }
+
+/* Bank chips */
+.chip { padding:3px 9px; border-radius:12px; font-size:11px; cursor:pointer; border:1px solid var(--border); color: var(--dimmed); background:transparent; transition:all 0.12s; white-space:nowrap; }
+.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip.active { background: var(--accent); color:#fff; border-color: var(--accent); }
+
+/* Quarter pills */
+.q-pill { padding:3px 7px; border-radius:4px; font-size:10px; cursor:pointer; border:1px solid var(--border); color: var(--dimmed); background:transparent; transition:all 0.12s; font-family:'Segoe UI',monospace; }
+.q-pill:hover { border-color: var(--accent); color: var(--text); }
+.q-pill.active { background: var(--accent); color:#fff; border-color: var(--accent); }
+
+/* Select & input */
+.ctrl-select { background: var(--card); color: var(--text); border:1px solid var(--border); border-radius:4px; padding:5px 8px; font-size:12px; min-width:180px; }
+.ctrl-select:focus { outline:none; border-color: var(--accent); }
+
+/* ═══════════════════════ SUMMARY CARDS ═══════════════════════ */
+.summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:16px; }
+.summary-card { background: var(--card); border:1px solid var(--border); border-radius:8px; padding:14px; text-align:center; }
+.summary-card .label { font-size:10px; text-transform:uppercase; letter-spacing:0.8px; color: var(--dimmed); margin-bottom:6px; }
+.summary-card .value { font-size:22px; font-weight:700; color: var(--accent); font-variant-numeric:tabular-nums; }
+.summary-card .value.green { color: var(--green); }
+.summary-card .value.red { color: var(--red); }
+
+/* ═══════════════════════ CHART GRID ═══════════════════════ */
+.chart-grid { display:grid; gap:14px; margin-bottom:16px; }
+.chart-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.chart-grid.cols-1 { grid-template-columns: 1fr; }
+.chart-box { background: var(--card); border:1px solid var(--border); border-radius:8px; padding:12px; min-width:0; }
+.chart-box h3 { font-size:12px; color: var(--dimmed); margin-bottom:6px; font-weight:600; }
+.chart-box .plot { width:100%; min-height:320px; }
+
+/* ═══════════════════════ TABLES ═══════════════════════ */
+.table-wrap { overflow:auto; border:1px solid var(--border); border-radius:8px; max-height:600px; }
+.data-table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+.data-table th { background: var(--card); color: var(--dimmed); padding:8px 10px; text-align:right; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; position:sticky; top:0; z-index:2; border-bottom:2px solid var(--border); cursor:pointer; white-space:nowrap; user-select:none; }
+.data-table th:first-child { text-align:left; position:sticky; left:0; z-index:3; background: var(--card); }
+.data-table td { padding:6px 10px; border-bottom:1px solid rgba(51,65,85,0.3); text-align:right; white-space:nowrap; }
+.data-table td:first-child { text-align:left; font-weight:600; color: var(--accent); position:sticky; left:0; background: var(--card); z-index:1; }
+.data-table tr:nth-child(even) td { background: var(--alt-row); }
+.data-table tr:nth-child(even) td:first-child { background: var(--alt-row); }
+.data-table tr:hover td { background: var(--hover) !important; }
+.data-table .sort-asc::after { content:' \u25B2'; font-size:8px; }
+.data-table .sort-desc::after { content:' \u25BC'; font-size:8px; }
+.val-pos { color: var(--green); }
+.val-neg { color: var(--red); }
+
+/* DuPont table */
+.dupont-table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+.dupont-table th { background: var(--card); color: var(--dimmed); padding:7px 10px; text-align:right; font-weight:700; font-size:10px; position:sticky; top:0; z-index:2; border-bottom:2px solid var(--border); white-space:nowrap; }
+.dupont-table th:first-child, .dupont-table th:nth-child(2) { text-align:left; }
+.dupont-table td { padding:6px 10px; border-bottom:1px solid rgba(51,65,85,0.3); text-align:right; white-space:nowrap; }
+.dupont-table td:first-child, .dupont-table td:nth-child(2) { text-align:left; }
+.dupont-table tr.subtotal td { font-weight:700; color: var(--accent); }
+.dupont-table tr.result td { font-weight:700; color: var(--green); }
+.dupont-table tr.separator td { border-bottom:2px dashed var(--border); padding:2px; }
+.dupont-table tr:hover td { background: var(--hover); }
+
+/* ═══════════════════════ LOADING ═══════════════════════ */
+.loading { text-align:center; padding:60px 20px; color: var(--dimmed); }
+.loading::after { content:''; display:block; width:24px; height:24px; margin:12px auto 0; border:3px solid var(--border); border-top-color: var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
+.error-msg { text-align:center; padding:40px; color: var(--red); font-size:13px; }
+
+/* ═══════════════════════ SCROLLBAR ═══════════════════════ */
 ::-webkit-scrollbar { width:6px; height:6px; }
-::-webkit-scrollbar-track { background:var(--bg); }
-::-webkit-scrollbar-thumb { background:var(--bg3); border-radius:3px; }
-@media (max-width:900px) {
-  #sidebar { width:60px; }
-  #sidebar h1, .nav-section { display:none; }
-  .nav-item { padding:10px; text-align:center; font-size:11px; }
-  #main { margin-left:60px; padding:12px; }
-  .chart-row.cols-2, .chart-row.cols-3 { grid-template-columns:1fr; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius:3px; }
+
+/* ═══════════════════════ RESPONSIVE ═══════════════════════ */
+@media (max-width:1100px) {
+  .chart-grid.cols-3 { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width:800px) {
+  #sidebar { width:56px; }
+  #sidebar .sidebar-header h1, #sidebar .sidebar-header .sub, .nav-section { display:none; }
+  .nav-item { padding:8px 6px; text-align:center; font-size:10px; border-left:none; border-bottom:2px solid transparent; }
+  .nav-item.active { border-bottom-color: var(--accent); border-left-color:transparent; }
+  #main { margin-left:56px; padding:12px; }
+  .chart-grid.cols-2, .chart-grid.cols-3 { grid-template-columns:1fr; }
+  .summary-grid { grid-template-columns: repeat(2,1fr); }
 }
 </style>
 </head>
 <body>
 
+<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
 <div id="sidebar">
-  <h1>Banking Dashboard<span>Indian Banks | 42 Banks | FY2005-FY26</span></h1>
+  <div class="sidebar-header">
+    <h1>Indian Banking Dashboard</h1>
+    <div class="sub">29 Banks | FY07 - FY26</div>
+  </div>
   <div class="nav-section">Analysis</div>
-  <div class="nav-item active" data-page="dupont">DuPont RoE Tree</div>
-  <div class="nav-item" data-page="screener">Ratio Screener</div>
-  <div class="nav-item" data-page="deepdive">Bank Deep Dive</div>
+  <div class="nav-item active" data-page="overview">Overview</div>
+  <div class="nav-item" data-page="profitability">Profitability</div>
+  <div class="nav-item" data-page="growth">Growth</div>
+  <div class="nav-item" data-page="assetquality">Asset Quality</div>
+  <div class="nav-item" data-page="capital">Capital &amp; Scale</div>
+  <div class="nav-section">Data</div>
+  <div class="nav-item" data-page="table">Detailed Table</div>
+  <div class="nav-item" data-page="timeseries">Time Series</div>
+  <div class="nav-section">Decomposition</div>
+  <div class="nav-item" data-page="dupont">DuPont RoE Tree</div>
+  <div class="nav-section">Franchise</div>
+  <div class="nav-item" data-page="opkpi">Operational KPIs</div>
   <div class="nav-section">System</div>
-  <div class="nav-item" data-page="sector">Sector and RBI Data</div>
-  <div class="nav-item" data-page="novel">Franchise Metrics</div>
-  <div class="nav-item" data-page="cards">Cards and Rates</div>
+  <div class="nav-item" data-page="sector">Sector &amp; RBI</div>
+  <div class="sidebar-footer">
+    <button id="theme-toggle">Toggle Light Mode</button>
+  </div>
 </div>
 
+<!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
 <div id="main">
-  <div id="page-dupont" class="page active">
-    <h2 style="font-size:18px;margin-bottom:4px;">DuPont RoE Decomposition</h2>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">RoE = RoA x Equity Multiplier | RoA = NII/Assets + NonII/Assets - OpEx/Assets - Credit Cost - Tax/Assets</p>
-    <div class="controls" id="dupont-controls"></div>
-    <div id="dupont-content"><div class="loading">Loading DuPont data...</div></div>
+
+  <!-- OVERVIEW -->
+  <div id="page-overview" class="page active">
+    <div class="page-title">Overview</div>
+    <div class="page-sub">Key metrics snapshot for selected banks and quarter</div>
+    <div class="controls" id="ctrl-overview"></div>
+    <div id="overview-summary" class="summary-grid"></div>
+    <div id="overview-charts" class="chart-grid cols-2"></div>
   </div>
-  <div id="page-screener" class="page">
-    <h2 style="font-size:18px;margin-bottom:4px;">Ratio Screener</h2>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">Compare all banks on any metric for a chosen period</p>
-    <div class="controls" id="screener-controls"></div>
-    <div id="screener-content"><div class="loading">Loading...</div></div>
+
+  <!-- PROFITABILITY -->
+  <div id="page-profitability" class="page">
+    <div class="page-title">Profitability</div>
+    <div class="page-sub">Return ratios, margins, and cost efficiency trends</div>
+    <div class="controls" id="ctrl-profitability"></div>
+    <div id="profitability-charts" class="chart-grid cols-2"></div>
   </div>
-  <div id="page-deepdive" class="page">
-    <h2 style="font-size:18px;margin-bottom:4px;">Bank Deep Dive</h2>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">Time-series analysis for a single bank</p>
-    <div class="controls" id="deepdive-controls"></div>
-    <div id="deepdive-content"><div class="loading">Loading...</div></div>
+
+  <!-- GROWTH -->
+  <div id="page-growth" class="page">
+    <div class="page-title">Growth</div>
+    <div class="page-sub">Advances, deposits, NII and PAT trends</div>
+    <div class="controls" id="ctrl-growth"></div>
+    <div id="growth-charts" class="chart-grid cols-2"></div>
   </div>
+
+  <!-- ASSET QUALITY -->
+  <div id="page-assetquality" class="page">
+    <div class="page-title">Asset Quality</div>
+    <div class="page-sub">GNPA, NNPA, slippages, provision coverage</div>
+    <div class="controls" id="ctrl-assetquality"></div>
+    <div id="assetquality-charts" class="chart-grid cols-2"></div>
+  </div>
+
+  <!-- CAPITAL & SCALE -->
+  <div id="page-capital" class="page">
+    <div class="page-title">Capital &amp; Scale</div>
+    <div class="page-sub">Capital adequacy and balance sheet size for selected quarter</div>
+    <div class="controls" id="ctrl-capital"></div>
+    <div id="capital-charts" class="chart-grid cols-2"></div>
+  </div>
+
+  <!-- DETAILED TABLE -->
+  <div id="page-table" class="page">
+    <div class="page-title">Detailed Table</div>
+    <div class="page-sub">All key metrics for selected quarter, sortable</div>
+    <div class="controls" id="ctrl-table"></div>
+    <div id="table-content"></div>
+  </div>
+
+  <!-- TIME SERIES -->
+  <div id="page-timeseries" class="page">
+    <div class="page-title">Time Series</div>
+    <div class="page-sub">Any metric across time for selected banks</div>
+    <div class="controls" id="ctrl-timeseries"></div>
+    <div id="timeseries-chart" class="chart-grid cols-1"></div>
+    <div id="timeseries-table"></div>
+  </div>
+
+  <!-- DUPONT -->
+  <div id="page-dupont" class="page">
+    <div class="page-title">DuPont RoE Decomposition</div>
+    <div class="page-sub">RoE = RoA x Equity Multiplier | Full waterfall breakdown</div>
+    <div class="controls" id="ctrl-dupont"></div>
+    <div id="dupont-content"></div>
+  </div>
+
+  <!-- OPERATIONAL KPIs -->
+  <div id="page-opkpi" class="page">
+    <div class="page-title">Operational KPIs</div>
+    <div class="page-sub">CASA/Branch, Advances/Branch, franchise efficiency metrics</div>
+    <div class="controls" id="ctrl-opkpi"></div>
+    <div id="opkpi-charts"></div>
+  </div>
+
+  <!-- SECTOR & RBI -->
   <div id="page-sector" class="page">
-    <h2 style="font-size:18px;margin-bottom:4px;">Sector and RBI Data</h2>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">System-level credit, deposit, CASA trends from RBI</p>
-    <div id="sector-content"><div class="loading">Loading...</div></div>
+    <div class="page-title">Sector &amp; System Data</div>
+    <div class="page-sub">RBI fortnightly data, system credit/deposit trends, CASA by group</div>
+    <div id="sector-charts"></div>
   </div>
-  <div id="page-novel" class="page">
-    <h2 style="font-size:18px;margin-bottom:4px;">Franchise and Novel Metrics</h2>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">CASA/branch, deposit franchise score, operating leverage and more</p>
-    <div class="controls" id="novel-controls"></div>
-    <div id="novel-content"><div class="loading">Loading...</div></div>
-  </div>
-  <div id="page-cards" class="page">
-    <h2 style="font-size:18px;margin-bottom:4px;">Credit Cards and Deposit Rates</h2>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">Credit card issuance, transactions and savings/TD rate comparison</p>
-    <div id="cards-content"><div class="loading">Loading...</div></div>
-  </div>
+
 </div>
 
-<script src="dashboard.js?v=2"></script>
+<!-- ═══════════════════════ JAVASCRIPT ═══════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+/* ─────────────────────── CONSTANTS ─────────────────────── */
+const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#14b8a6','#f97316','#6366f1',
+  '#a855f7','#22d3ee','#f43f5e','#84cc16','#0ea5e9','#d946ef','#fb923c','#34d399','#818cf8','#fbbf24',
+  '#e879f9','#2dd4bf','#fb7185','#a3e635','#38bdf8','#c084fc','#fdba74','#6ee7b7','#a5b4fc','#fcd34d'];
+const PLOTLY_LAYOUT_BASE = {
+  paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+  margin:{l:50,r:20,t:30,b:50}, font:{family:'Segoe UI, sans-serif', size:11},
+  showlegend:true, legend:{orientation:'h', y:-0.18, x:0.5, xanchor:'center', font:{size:10}},
+  xaxis:{gridcolor:'rgba(100,116,139,0.15)', zerolinecolor:'rgba(100,116,139,0.15)'},
+  yaxis:{gridcolor:'rgba(100,116,139,0.15)', zerolinecolor:'rgba(100,116,139,0.15)'}
+};
+const PLOTLY_CONFIG = {responsive:true, displayModeBar:false};
+
+/* ─────────────────────── STATE ─────────────────────── */
+let DATA = {};
+let STATE = {
+  activeBanks: [],
+  selectedQuarter: '',
+  selectedBanks: new Set(),
+  dupontMode: 'cross',   // cross or time
+  dupontBank: 'HDFCB',
+  tsMetric: 'RoE',
+  opkpiMetric: 'CASA_per_branch',
+  opkpiMode: 'cross'
+};
+
+/* ─────────────────────── DATA LOADING ─────────────────────── */
+const FILES = ['meta','quarterly_metrics','dupont_quarterly','quarters','years',
+  'novel_metrics','rbi_fortnightly','system_data','casa_by_group','credit_cards','deposit_rates'];
+
+async function loadData() {
+  const results = await Promise.allSettled(
+    FILES.map(f => fetch(`data/${f}.json`).then(r => { if(!r.ok) throw new Error(r.status); return r.json(); }))
+  );
+  FILES.forEach((f, i) => {
+    if(results[i].status === 'fulfilled') DATA[f] = results[i].value;
+    else console.warn(`Failed to load ${f}.json:`, results[i].reason);
+  });
+
+  if(!DATA.meta) { document.getElementById('main').innerHTML = '<div class="error-msg">Failed to load meta.json. Check data/ folder.</div>'; return; }
+
+  // Initialize state
+  const meta = DATA.meta;
+  STATE.activeBanks = meta.active_banks || [];
+  STATE.selectedBanks = new Set(meta.preset_filters?.['Top 5 Private'] || STATE.activeBanks.slice(0,5));
+  const quarters = DATA.quarters || [];
+  STATE.selectedQuarter = quarters[quarters.length - 1] || '';
+
+  initApp();
+}
+
+/* ─────────────────────── HELPERS ─────────────────────── */
+function bankName(ticker) {
+  return DATA.meta?.bank_display_names?.[ticker] || ticker;
+}
+
+function bankColor(ticker, selectedArr) {
+  const idx = selectedArr.indexOf(ticker);
+  return COLORS[idx % COLORS.length];
+}
+
+// Quarter sort key: "1QFY20" => 201901  (FY20 Q1 => cal 2019 Q1 in sort order)
+function quarterSortKey(q) {
+  const m = q.match(/^(\d)QFY(\d{2})$/);
+  if(!m) return 0;
+  const qn = parseInt(m[1]);
+  const fy = parseInt(m[2]);
+  const year = fy < 50 ? 2000 + fy : 1900 + fy;
+  return year * 10 + qn;
+}
+
+function sortQuarters(arr) {
+  return [...arr].sort((a,b) => quarterSortKey(a) - quarterSortKey(b));
+}
+
+function getLastNQuarters(n) {
+  const all = DATA.quarters || [];
+  return all.slice(Math.max(0, all.length - n));
+}
+
+function selectedBanksArray() {
+  return [...STATE.selectedBanks].sort();
+}
+
+// Indian number format: 1,23,456
+function fmtIndian(n) {
+  if(n == null || isNaN(n)) return '\u2014';
+  const neg = n < 0; n = Math.abs(n);
+  const parts = n.toFixed(0).split('.');
+  let s = parts[0];
+  if(s.length > 3) {
+    const last3 = s.slice(-3);
+    const rest = s.slice(0, -3);
+    s = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + last3;
+  }
+  return (neg ? '-' : '') + s;
+}
+
+function fmtPct(v, dec) {
+  if(v == null || isNaN(v)) return '\u2014';
+  dec = dec ?? 1;
+  return v.toFixed(dec) + '%';
+}
+
+function fmtBps(v) {
+  if(v == null || isNaN(v)) return '\u2014';
+  return (v * 100).toFixed(0) + ' bps';
+}
+
+function fmtMultiple(v) {
+  if(v == null || isNaN(v)) return '\u2014';
+  return v.toFixed(1) + 'x';
+}
+
+function fmtVal(v, metric) {
+  if(v == null || isNaN(v)) return '\u2014';
+  const pctMetrics = ['RoE','RoA','NIM','Cost-income','Credit_cost','GNPA_ratio','NNPA_ratio','PCR',
+    'CASA_ratio','CD_ratio','CRAR','CET1_ratio','Tier1','Yield_on_adv','Yield_on_assets',
+    'Cost_of_funds','Gross_slip_ratio','Net_slip_ratio','CoF_reported','CoD_reported',
+    'NIM_reported','Cost_of_SA','Cost_of_TD','Cost_of_dep','Yield_on_inv_calc','Yield_on_inv_rep',
+    'PPOP-assets','PBT-assets','Cost-assets','LLP-to-PPOP','Loans_assets','LCR','SLR'];
+  const absMetrics = ['NII','PAT','PPOP','Fee_income','Deposits','Loans_gross','Assets','Net_worth',
+    'Slippages','Writeoff','Int_inc','Int_exp','Revenue','OpEx','Non_Int_Inc','Provisions',
+    'LLP','PBT','Staff_exp','Non_staff_exp','GNPA','NNPA','Investments','Borrowings','RWA',
+    'Treasury','CA','SA','TD','CASA','AFS','HTM','HFT','Loans_net','Recov_upgrad',
+    'Int_exp_dep','Employees','Branches'];
+  if(pctMetrics.includes(metric)) return fmtPct(v, metric === 'RoA' || metric === 'NIM' ? 2 : 1);
+  if(absMetrics.includes(metric)) return fmtIndian(Math.round(v));
+  return typeof v === 'number' ? v.toFixed(2) : String(v);
+}
+
+function getPlotlyLayout(title, extra) {
+  const isDark = !document.documentElement.hasAttribute('data-theme') || document.documentElement.getAttribute('data-theme') === 'dark';
+  const fontColor = isDark ? '#e2e8f0' : '#1e293b';
+  const gridColor = isDark ? 'rgba(100,116,139,0.2)' : 'rgba(100,116,139,0.15)';
+  const base = {
+    ...PLOTLY_LAYOUT_BASE,
+    font:{...PLOTLY_LAYOUT_BASE.font, color: fontColor},
+    title:{text:title||'', font:{size:13, color:fontColor}},
+    xaxis:{...PLOTLY_LAYOUT_BASE.xaxis, gridcolor:gridColor, tickfont:{color:fontColor, size:10}},
+    yaxis:{...PLOTLY_LAYOUT_BASE.yaxis, gridcolor:gridColor, tickfont:{color:fontColor, size:10}},
+    legend:{...PLOTLY_LAYOUT_BASE.legend, font:{size:9, color:fontColor}}
+  };
+  return extra ? {...base, ...extra} : base;
+}
+
+/* Get metric value for a bank at a quarter */
+function qmVal(metric, bank, quarter) {
+  return DATA.quarterly_metrics?.[metric]?.[bank]?.[quarter] ?? null;
+}
+
+/* ─────────────────────── CONTROL BUILDERS ─────────────────────── */
+function buildBankSelector(containerId, opts) {
+  opts = opts || {};
+  const container = document.getElementById(containerId);
+  if(!container) return;
+
+  // Preset row
+  const presetRow = document.createElement('div');
+  presetRow.className = 'ctrl-row';
+  presetRow.innerHTML = '<span class="ctrl-label">Presets</span>';
+
+  const presets = DATA.meta?.preset_filters || {};
+  Object.keys(presets).forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    btn.textContent = name;
+    btn.onclick = () => {
+      STATE.selectedBanks = new Set(presets[name]);
+      updateChipStates(containerId);
+      updatePresetStates(containerId);
+      if(opts.onChange) opts.onChange();
+    };
+    presetRow.appendChild(btn);
+  });
+  container.appendChild(presetRow);
+
+  // Bank chips row
+  const chipRow = document.createElement('div');
+  chipRow.className = 'ctrl-row';
+  chipRow.innerHTML = '<span class="ctrl-label">Banks</span>';
+  chipRow.setAttribute('data-role', 'chips');
+
+  STATE.activeBanks.forEach(ticker => {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (STATE.selectedBanks.has(ticker) ? ' active' : '');
+    chip.textContent = ticker;
+    chip.title = bankName(ticker);
+    chip.setAttribute('data-ticker', ticker);
+    chip.onclick = () => {
+      if(STATE.selectedBanks.has(ticker)) STATE.selectedBanks.delete(ticker);
+      else STATE.selectedBanks.add(ticker);
+      chip.classList.toggle('active');
+      updatePresetStates(containerId);
+      if(opts.onChange) opts.onChange();
+    };
+    chipRow.appendChild(chip);
+  });
+  container.appendChild(chipRow);
+
+  // Quarter row (if needed)
+  if(!opts.noQuarter) {
+    const qRow = document.createElement('div');
+    qRow.className = 'ctrl-row';
+    qRow.innerHTML = '<span class="ctrl-label">Quarter</span>';
+    qRow.setAttribute('data-role', 'quarters');
+
+    const quarters = getLastNQuarters(20);
+    quarters.forEach(q => {
+      const pill = document.createElement('button');
+      pill.className = 'q-pill' + (q === STATE.selectedQuarter ? ' active' : '');
+      pill.textContent = q;
+      pill.setAttribute('data-q', q);
+      pill.onclick = () => {
+        STATE.selectedQuarter = q;
+        container.querySelectorAll('.q-pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-q') === q));
+        // Sync all quarter selectors
+        document.querySelectorAll('.controls .q-pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-q') === q));
+        if(opts.onChange) opts.onChange();
+      };
+      qRow.appendChild(pill);
+    });
+    container.appendChild(qRow);
+  }
+
+  updatePresetStates(containerId);
+}
+
+function updateChipStates(containerId) {
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  container.querySelectorAll('.chip').forEach(c => {
+    c.classList.toggle('active', STATE.selectedBanks.has(c.getAttribute('data-ticker')));
+  });
+  // Also sync other pages' chip selectors
+  document.querySelectorAll('.controls').forEach(ctrl => {
+    ctrl.querySelectorAll('.chip').forEach(c => {
+      c.classList.toggle('active', STATE.selectedBanks.has(c.getAttribute('data-ticker')));
+    });
+  });
+}
+
+function updatePresetStates(containerId) {
+  const presets = DATA.meta?.preset_filters || {};
+  document.querySelectorAll('.controls').forEach(ctrl => {
+    ctrl.querySelectorAll('.preset-btn').forEach(btn => {
+      const name = btn.textContent;
+      const pBanks = presets[name] || [];
+      const match = pBanks.length === STATE.selectedBanks.size && pBanks.every(b => STATE.selectedBanks.has(b));
+      btn.classList.toggle('active', match);
+    });
+  });
+}
+
+/* ─────────────────────── TAB NAVIGATION ─────────────────────── */
+function initNav() {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      item.classList.add('active');
+      const page = document.getElementById('page-' + item.getAttribute('data-page'));
+      if(page) page.classList.add('active');
+      // Trigger render on switch
+      const pgName = item.getAttribute('data-page');
+      renderPage(pgName);
+    });
+  });
+}
+
+/* ─────────────────────── THEME TOGGLE ─────────────────────── */
+function initTheme() {
+  const saved = localStorage.getItem('banking-dash-theme');
+  if(saved === 'light') document.documentElement.setAttribute('data-theme','light');
+  updateThemeBtn();
+
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if(isLight) document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme','light');
+    localStorage.setItem('banking-dash-theme', isLight ? 'dark' : 'light');
+    updateThemeBtn();
+    // Re-render current page for chart colors
+    const active = document.querySelector('.nav-item.active');
+    if(active) renderPage(active.getAttribute('data-page'));
+  });
+}
+
+function updateThemeBtn() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const btn = document.getElementById('theme-toggle');
+  btn.textContent = isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode';
+}
+
+/* ─────────────────────── PAGE RENDERERS ─────────────────────── */
+const rendered = {};
+
+function renderPage(name) {
+  switch(name) {
+    case 'overview': renderOverview(); break;
+    case 'profitability': renderProfitability(); break;
+    case 'growth': renderGrowth(); break;
+    case 'assetquality': renderAssetQuality(); break;
+    case 'capital': renderCapital(); break;
+    case 'table': renderTable(); break;
+    case 'timeseries': renderTimeSeries(); break;
+    case 'dupont': renderDuPont(); break;
+    case 'opkpi': renderOpKPI(); break;
+    case 'sector': renderSector(); break;
+  }
+}
+
+/* ═══════════════════════ 1. OVERVIEW ═══════════════════════ */
+function renderOverview() {
+  const ctrl = document.getElementById('ctrl-overview');
+  if(!ctrl.children.length) {
+    buildBankSelector('ctrl-overview', {onChange: renderOverview});
+  }
+
+  const qm = DATA.quarterly_metrics;
+  if(!qm) return;
+  const q = STATE.selectedQuarter;
+  const banks = selectedBanksArray();
+
+  // Summary cards
+  const summaryMetrics = [
+    {key:'RoE', label:'Avg RoE'}, {key:'RoA', label:'Avg RoA'}, {key:'NIM', label:'Avg NIM'},
+    {key:'GNPA_ratio', label:'Avg GNPA'}, {key:'Credit_cost', label:'Avg Credit Cost'}, {key:'CASA_ratio', label:'Avg CASA'}
+  ];
+  const summaryDiv = document.getElementById('overview-summary');
+  summaryDiv.innerHTML = summaryMetrics.map(m => {
+    const vals = banks.map(b => qmVal(m.key, b, q)).filter(v => v != null);
+    const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    const cls = m.key === 'GNPA_ratio' ? (avg > 3 ? 'red' : '') : (avg != null && avg > 0 ? '' : 'red');
+    return `<div class="summary-card"><div class="label">${m.label}</div><div class="value ${cls}">${fmtPct(avg, m.key==='RoA'||m.key==='NIM'?2:1)}</div></div>`;
+  }).join('');
+
+  // Bar charts
+  const chartMetrics = [
+    {key:'RoE', title:'Return on Equity (%)'}, {key:'RoA', title:'Return on Assets (%)'},
+    {key:'NIM', title:'Net Interest Margin (%)'}, {key:'GNPA_ratio', title:'Gross NPA (%)'}
+  ];
+
+  const chartsDiv = document.getElementById('overview-charts');
+  chartsDiv.innerHTML = chartMetrics.map((m,i) => `<div class="chart-box"><h3>${m.title} - ${q}</h3><div class="plot" id="ov-chart-${i}"></div></div>`).join('');
+
+  chartMetrics.forEach((m, i) => {
+    let data = banks.map(b => ({bank:b, val: qmVal(m.key, b, q)})).filter(d => d.val != null);
+    data.sort((a,b) => b.val - a.val);
+    Plotly.newPlot(`ov-chart-${i}`, [{
+      x: data.map(d => d.bank), y: data.map(d => d.val), type:'bar',
+      marker:{color: data.map((_,j) => COLORS[j % COLORS.length])},
+      text: data.map(d => d.val.toFixed(m.key==='RoA'?2:1)+'%'), textposition:'outside', textfont:{size:9}
+    }], getPlotlyLayout('', {showlegend:false, yaxis:{...getPlotlyLayout().yaxis, title:''}}), PLOTLY_CONFIG);
+  });
+}
+
+/* ═══════════════════════ 2. PROFITABILITY ═══════════════════════ */
+function renderProfitability() {
+  const ctrl = document.getElementById('ctrl-profitability');
+  if(!ctrl.children.length) {
+    buildBankSelector('ctrl-profitability', {onChange: renderProfitability});
+  }
+
+  const qm = DATA.quarterly_metrics;
+  if(!qm) return;
+  const banks = selectedBanksArray();
+  const quarters = getLastNQuarters(20);
+  const q = STATE.selectedQuarter;
+
+  const chartDefs = [
+    {key:'RoE', title:'RoE (%) Trend', type:'line'},
+    {key:'RoA', title:'RoA (%) Trend', type:'line'},
+    {key:'NIM', title:'NIM (%) Trend', type:'line'},
+    {key:'Cost-income', title:'Cost-to-Income (%) Trend', type:'line'},
+    {key:'_scatter', title:`Yield on Assets vs Cost of Funds - ${q}`, type:'scatter'},
+    {key:'Credit_cost', title:'Credit Cost (%) Trend', type:'line'}
+  ];
+
+  const div = document.getElementById('profitability-charts');
+  div.innerHTML = chartDefs.map((c,i) => `<div class="chart-box"><h3>${c.title}</h3><div class="plot" id="prof-chart-${i}"></div></div>`).join('');
+
+  chartDefs.forEach((c, i) => {
+    if(c.key === '_scatter') {
+      // Yield vs CoF scatter
+      const traces = [{
+        x: banks.map(b => qmVal('Cost_of_funds', b, q)),
+        y: banks.map(b => qmVal('Yield_on_assets', b, q)),
+        text: banks, mode:'markers+text', textposition:'top center', textfont:{size:9},
+        marker:{size:10, color: banks.map((b,j) => bankColor(b, banks))},
+        type:'scatter'
+      }];
+      Plotly.newPlot(`prof-chart-${i}`, traces, getPlotlyLayout('', {
+        showlegend:false,
+        xaxis:{...getPlotlyLayout().xaxis, title:'Cost of Funds (%)'},
+        yaxis:{...getPlotlyLayout().yaxis, title:'Yield on Assets (%)'}
+      }), PLOTLY_CONFIG);
+    } else {
+      // Line chart
+      const traces = banks.map((b,j) => ({
+        x: quarters, y: quarters.map(q2 => qmVal(c.key, b, q2)),
+        name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5},
+        connectgaps:true
+      }));
+      Plotly.newPlot(`prof-chart-${i}`, traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+    }
+  });
+}
+
+/* ═══════════════════════ 3. GROWTH ═══════════════════════ */
+function renderGrowth() {
+  const ctrl = document.getElementById('ctrl-growth');
+  if(!ctrl.children.length) {
+    buildBankSelector('ctrl-growth', {onChange: renderGrowth});
+  }
+
+  const qm = DATA.quarterly_metrics;
+  if(!qm) return;
+  const banks = selectedBanksArray();
+  const quarters = getLastNQuarters(20);
+
+  // Compute QoQ growth
+  function qoqGrowth(metric) {
+    const allQ = DATA.quarters || [];
+    return banks.map((b,j) => ({
+      x: quarters,
+      y: quarters.map(q => {
+        const idx = allQ.indexOf(q);
+        if(idx < 4) return null;
+        const cur = qmVal(metric, b, q);
+        const prev = qmVal(metric, b, allQ[idx-4]);
+        if(cur == null || prev == null || prev === 0) return null;
+        return ((cur - prev) / Math.abs(prev)) * 100;
+      }),
+      name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5}, connectgaps:true
+    }));
+  }
+
+  const chartDefs = [
+    {key:'Loans_gross', title:'Gross Advances (Rs Cr)', type:'line'},
+    {key:'_adv_growth', title:'Advances Growth YoY (%)', type:'growth', base:'Loans_gross'},
+    {key:'PAT', title:'PAT (Rs Cr)', type:'line'},
+    {key:'_pat_growth', title:'PAT Growth YoY (%)', type:'growth', base:'PAT'},
+    {key:'_nii_growth', title:'NII Growth YoY (%)', type:'growth', base:'NII'},
+    {key:'Deposits', title:'Deposits (Rs Cr)', type:'line'}
+  ];
+
+  const div = document.getElementById('growth-charts');
+  div.innerHTML = chartDefs.map((c,i) => `<div class="chart-box"><h3>${c.title}</h3><div class="plot" id="gr-chart-${i}"></div></div>`).join('');
+
+  chartDefs.forEach((c,i) => {
+    if(c.type === 'growth') {
+      Plotly.newPlot(`gr-chart-${i}`, qoqGrowth(c.base), getPlotlyLayout(''), PLOTLY_CONFIG);
+    } else {
+      const traces = banks.map((b,j) => ({
+        x: quarters, y: quarters.map(q2 => qmVal(c.key, b, q2)),
+        name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5}, connectgaps:true
+      }));
+      Plotly.newPlot(`gr-chart-${i}`, traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+    }
+  });
+}
+
+/* ═══════════════════════ 4. ASSET QUALITY ═══════════════════════ */
+function renderAssetQuality() {
+  const ctrl = document.getElementById('ctrl-assetquality');
+  if(!ctrl.children.length) {
+    buildBankSelector('ctrl-assetquality', {onChange: renderAssetQuality});
+  }
+
+  const qm = DATA.quarterly_metrics;
+  if(!qm) return;
+  const banks = selectedBanksArray();
+  const quarters = getLastNQuarters(20);
+
+  const chartDefs = [
+    {key:'GNPA_ratio', title:'GNPA (%) Trend'},
+    {key:'NNPA_ratio', title:'NNPA (%) Trend'},
+    {key:'PCR', title:'Provision Coverage Ratio (%)'},
+    {key:'Credit_cost', title:'Credit Cost (%)'},
+    {key:'Gross_slip_ratio', title:'Gross Slippage Ratio (%)'},
+    {key:'Net_slip_ratio', title:'Net Slippage Ratio (%)'}
+  ];
+
+  const div = document.getElementById('assetquality-charts');
+  div.innerHTML = chartDefs.map((c,i) => `<div class="chart-box"><h3>${c.title}</h3><div class="plot" id="aq-chart-${i}"></div></div>`).join('');
+
+  chartDefs.forEach((c,i) => {
+    const traces = banks.map((b,j) => ({
+      x: quarters, y: quarters.map(q2 => qmVal(c.key, b, q2)),
+      name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5}, connectgaps:true
+    }));
+    Plotly.newPlot(`aq-chart-${i}`, traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+  });
+}
+
+/* ═══════════════════════ 5. CAPITAL & SCALE ═══════════════════════ */
+function renderCapital() {
+  const ctrl = document.getElementById('ctrl-capital');
+  if(!ctrl.children.length) {
+    buildBankSelector('ctrl-capital', {onChange: renderCapital});
+  }
+
+  const qm = DATA.quarterly_metrics;
+  if(!qm) return;
+  const q = STATE.selectedQuarter;
+  const banks = selectedBanksArray();
+
+  const chartDefs = [
+    {key:'CRAR', title:`CRAR (%) - ${q}`, pct:true},
+    {key:'CET1_ratio', title:`CET1 Ratio (%) - ${q}`, pct:true},
+    {key:'Assets', title:`Total Assets (Rs Cr) - ${q}`, pct:false},
+    {key:'Deposits', title:`Deposits (Rs Cr) - ${q}`, pct:false}
+  ];
+
+  const div = document.getElementById('capital-charts');
+  div.innerHTML = chartDefs.map((c,i) => `<div class="chart-box"><h3>${c.title}</h3><div class="plot" id="cap-chart-${i}"></div></div>`).join('');
+
+  chartDefs.forEach((c,i) => {
+    let data = banks.map(b => ({bank:b, val: qmVal(c.key, b, q)})).filter(d => d.val != null);
+    data.sort((a,b) => b.val - a.val);
+    Plotly.newPlot(`cap-chart-${i}`, [{
+      x: data.map(d => d.bank), y: data.map(d => d.val), type:'bar',
+      marker:{color: data.map((_,j) => COLORS[j % COLORS.length])},
+      text: data.map(d => c.pct ? d.val.toFixed(1)+'%' : fmtIndian(Math.round(d.val))),
+      textposition:'outside', textfont:{size:9}
+    }], getPlotlyLayout('', {showlegend:false}), PLOTLY_CONFIG);
+  });
+}
+
+/* ═══════════════════════ 6. DETAILED TABLE ═══════════════════════ */
+function renderTable() {
+  const ctrl = document.getElementById('ctrl-table');
+  if(!ctrl.children.length) {
+    buildBankSelector('ctrl-table', {onChange: renderTable});
+  }
+
+  const qm = DATA.quarterly_metrics;
+  if(!qm) return;
+  const q = STATE.selectedQuarter;
+  const banks = selectedBanksArray();
+
+  const cols = [
+    {key:'RoE', label:'RoE %'}, {key:'RoA', label:'RoA %'}, {key:'NIM', label:'NIM %'},
+    {key:'Cost-income', label:'C/I %'}, {key:'Credit_cost', label:'Cr.Cost %'},
+    {key:'GNPA_ratio', label:'GNPA %'}, {key:'NNPA_ratio', label:'NNPA %'}, {key:'PCR', label:'PCR %'},
+    {key:'CASA_ratio', label:'CASA %'}, {key:'CD_ratio', label:'CD %'}, {key:'CRAR', label:'CRAR %'},
+    {key:'NII', label:'NII'}, {key:'PAT', label:'PAT'}, {key:'PPOP', label:'PPOP'},
+    {key:'Loans_gross', label:'Advances'}, {key:'Deposits', label:'Deposits'},
+    {key:'Yield_on_assets', label:'Yield'}, {key:'Cost_of_funds', label:'CoF'}
+  ];
+
+  let tableData = banks.map(b => {
+    const row = {bank: b, name: bankName(b)};
+    cols.forEach(c => { row[c.key] = qmVal(c.key, b, q); });
+    return row;
+  });
+
+  // Build table
+  let sortCol = null, sortDir = 'desc';
+
+  function buildTableHTML() {
+    if(sortCol) {
+      tableData.sort((a,b) => {
+        const va = a[sortCol] ?? -Infinity, vb = b[sortCol] ?? -Infinity;
+        return sortDir === 'desc' ? vb - va : va - vb;
+      });
+    }
+
+    let html = '<div class="table-wrap"><table class="data-table"><thead><tr>';
+    html += `<th>Bank</th>`;
+    cols.forEach(c => {
+      const cls = sortCol === c.key ? (sortDir === 'desc' ? 'sort-desc' : 'sort-asc') : '';
+      html += `<th class="${cls}" data-col="${c.key}">${c.label}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    tableData.forEach(row => {
+      html += '<tr>';
+      html += `<td title="${row.name}">${row.bank}</td>`;
+      cols.forEach(c => {
+        const v = row[c.key];
+        const formatted = fmtVal(v, c.key);
+        const cls = (c.key === 'GNPA_ratio' || c.key === 'NNPA_ratio' || c.key === 'Cost-income' || c.key === 'Credit_cost')
+          ? ''
+          : (v != null && v > 0 ? '' : (v != null && v < 0 ? 'val-neg' : ''));
+        html += `<td class="${cls}">${formatted}</td>`;
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  const div = document.getElementById('table-content');
+  div.innerHTML = buildTableHTML();
+
+  // Sort click handlers
+  div.querySelectorAll('th[data-col]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const col = th.getAttribute('data-col');
+      if(sortCol === col) sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+      else { sortCol = col; sortDir = 'desc'; }
+      div.innerHTML = buildTableHTML();
+      // Re-attach handlers (recursive call is fine for table)
+      div.querySelectorAll('th[data-col]').forEach(th2 => {
+        th2.style.cursor = 'pointer';
+        th2.addEventListener('click', function handler() {
+          const c2 = this.getAttribute('data-col');
+          if(sortCol === c2) sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+          else { sortCol = c2; sortDir = 'desc'; }
+          div.innerHTML = buildTableHTML();
+          attachSortHandlers();
+        });
+      });
+    });
+  });
+
+  function attachSortHandlers() {
+    div.querySelectorAll('th[data-col]').forEach(th => {
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', () => {
+        const col = th.getAttribute('data-col');
+        if(sortCol === col) sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+        else { sortCol = col; sortDir = 'desc'; }
+        div.innerHTML = buildTableHTML();
+        attachSortHandlers();
+      });
+    });
+  }
+}
+
+/* ═══════════════════════ 7. TIME SERIES ═══════════════════════ */
+function renderTimeSeries() {
+  const ctrl = document.getElementById('ctrl-timeseries');
+  if(!ctrl.children.length) {
+    buildBankSelector('ctrl-timeseries', {noQuarter:true, onChange: renderTimeSeries});
+
+    // Metric selector
+    const selRow = document.createElement('div');
+    selRow.className = 'ctrl-row';
+    selRow.innerHTML = '<span class="ctrl-label">Metric</span>';
+    const sel = document.createElement('select');
+    sel.className = 'ctrl-select';
+    sel.id = 'ts-metric-select';
+    const metrics = Object.keys(DATA.quarterly_metrics || {}).sort();
+    metrics.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      if(m === STATE.tsMetric) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.onchange = () => { STATE.tsMetric = sel.value; renderTimeSeriesContent(); };
+    selRow.appendChild(sel);
+    ctrl.appendChild(selRow);
+  }
+
+  renderTimeSeriesContent();
+}
+
+function renderTimeSeriesContent() {
+  const qm = DATA.quarterly_metrics;
+  if(!qm) return;
+  const metric = STATE.tsMetric;
+  const banks = selectedBanksArray();
+  const quarters = DATA.quarters || [];
+
+  // Chart
+  const chartDiv = document.getElementById('timeseries-chart');
+  chartDiv.innerHTML = '<div class="chart-box"><h3>' + metric + ' across time</h3><div class="plot" id="ts-plot" style="min-height:400px;"></div></div>';
+
+  const traces = banks.map((b,j) => ({
+    x: quarters, y: quarters.map(q => qmVal(metric, b, q)),
+    name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5}, connectgaps:true
+  }));
+  Plotly.newPlot('ts-plot', traces, getPlotlyLayout(metric), PLOTLY_CONFIG);
+
+  // Table: banks as rows, last 12 quarters as columns
+  const lastQ = quarters.slice(-12);
+  let html = '<div class="table-wrap" style="margin-top:14px;"><table class="data-table"><thead><tr><th>Bank</th>';
+  lastQ.forEach(q => { html += `<th>${q}</th>`; });
+  html += '</tr></thead><tbody>';
+  banks.forEach(b => {
+    html += `<tr><td>${b}</td>`;
+    lastQ.forEach(q => {
+      const v = qmVal(metric, b, q);
+      html += `<td>${fmtVal(v, metric)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('timeseries-table').innerHTML = html;
+}
+
+/* ═══════════════════════ 8. DUPONT ROE TREE ═══════════════════════ */
+function renderDuPont() {
+  const ctrl = document.getElementById('ctrl-dupont');
+  if(!ctrl.children.length) {
+    // Mode toggle
+    const modeRow = document.createElement('div');
+    modeRow.className = 'ctrl-row';
+    modeRow.innerHTML = '<span class="ctrl-label">Mode</span>';
+    ['cross','time'].forEach(mode => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn' + (STATE.dupontMode === mode ? ' active' : '');
+      btn.textContent = mode === 'cross' ? 'Cross-Bank View' : 'Time-Series View';
+      btn.setAttribute('data-mode', mode);
+      btn.onclick = () => {
+        STATE.dupontMode = mode;
+        ctrl.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode') === mode));
+        renderDuPontContent();
+      };
+      modeRow.appendChild(btn);
+    });
+    ctrl.appendChild(modeRow);
+
+    // Bank selector for time mode
+    const bankRow = document.createElement('div');
+    bankRow.className = 'ctrl-row';
+    bankRow.id = 'dupont-bank-row';
+    bankRow.innerHTML = '<span class="ctrl-label">Bank</span>';
+    const bankSel = document.createElement('select');
+    bankSel.className = 'ctrl-select';
+    bankSel.id = 'dupont-bank-select';
+    STATE.activeBanks.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = `${t} - ${bankName(t)}`;
+      if(t === STATE.dupontBank) opt.selected = true;
+      bankSel.appendChild(opt);
+    });
+    bankSel.onchange = () => { STATE.dupontBank = bankSel.value; renderDuPontContent(); };
+    bankRow.appendChild(bankSel);
+    ctrl.appendChild(bankRow);
+
+    // Bank chips for cross mode
+    buildBankSelector('ctrl-dupont', {onChange: renderDuPontContent});
+  }
+
+  renderDuPontContent();
+}
+
+function renderDuPontContent() {
+  const dq = DATA.dupont_quarterly;
+  if(!dq) { document.getElementById('dupont-content').innerHTML = '<div class="error-msg">DuPont data not loaded.</div>'; return; }
+
+  const mode = STATE.dupontMode;
+  const q = STATE.selectedQuarter;
+
+  // DuPont row definitions
+  const rows = [
+    {label:'Yield on Assets', op:'', src:'Yield_on_Assets', fmt:'pct2'},
+    {label:'Cost of Funds', op:'(\u2212)', src:'Cost_of_Funds', fmt:'pct2'},
+    {label:'NIM', op:'=', src:'NIM', fmt:'pct2', bold:true, accent:true},
+    {label:'Non-Interest Income / Assets', op:'(+)', src:'NonII_to_Assets', fmt:'pct2'},
+    {label:'Net Revenue / Assets', op:'=', src:null, calc:(d)=>(d.NII_to_Assets||0)+(d.NonII_to_Assets||0), fmt:'pct2', bold:true},
+    {label:'Operating Expense / Assets', op:'(\u2212)', src:'OpEx_to_Assets', fmt:'pct2'},
+    {label:'PPOP / Assets', op:'=', src:null, calc:(d)=>(d.NII_to_Assets||0)+(d.NonII_to_Assets||0)-(d.OpEx_to_Assets||0), fmt:'pct2', bold:true},
+    {label:'Credit Cost', op:'(\u2212)', src:'Credit_Cost', fmt:'pct2'},
+    {label:'PBT / Assets', op:'=', src:null, calc:(d)=>(d.NII_to_Assets||0)+(d.NonII_to_Assets||0)-(d.OpEx_to_Assets||0)-(d.Credit_Cost||0), fmt:'pct2'},
+    {label:'Tax / Assets', op:'(\u2212)', src:'Tax_to_Assets', fmt:'pct2'},
+    {label:'RoA', op:'=', src:'RoA', fmt:'pct2', bold:true, green:true},
+    {label:'SEP', op:'', src:null, sep:true},
+    {label:'Leverage (Equity Multiplier)', op:'\u00d7', src:'Equity_Multiplier', fmt:'mult'},
+    {label:'RoE', op:'=', src:'RoE', fmt:'pct1', bold:true, green:true}
+  ];
+
+  function getVal(src, calc, bankData) {
+    if(calc) return calc(bankData);
+    if(src && bankData[src] != null) return bankData[src];
+    return null;
+  }
+
+  function fmtDupont(v, fmt) {
+    if(v == null || isNaN(v)) return '\u2014';
+    if(fmt === 'pct2') return v.toFixed(2) + '%';
+    if(fmt === 'pct1') return v.toFixed(1) + '%';
+    if(fmt === 'mult') return v.toFixed(1) + 'x';
+    return v.toFixed(2);
+  }
+
+  let html = '';
+
+  if(mode === 'cross') {
+    // One quarter, all selected banks as columns
+    const banks = selectedBanksArray().filter(b => dq.RoE && dq.RoE[b]);
+
+    html = `<div class="table-wrap"><table class="dupont-table"><thead><tr><th>#</th><th>Line Item</th><th>Op</th>`;
+    banks.forEach(b => { html += `<th>${b}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    let rowNum = 0;
+    rows.forEach(r => {
+      if(r.sep) {
+        html += '<tr class="separator"><td colspan="' + (3+banks.length) + '"></td></tr>';
+        return;
+      }
+      rowNum++;
+      const cls = r.green ? 'result' : (r.bold ? 'subtotal' : '');
+      html += `<tr class="${cls}"><td>${rowNum}</td><td>${r.label}</td><td>${r.op}</td>`;
+      banks.forEach(b => {
+        const bankData = {};
+        Object.keys(dq).forEach(comp => { bankData[comp] = dq[comp]?.[b]?.[q] ?? null; });
+        const v = getVal(r.src, r.calc, bankData);
+        html += `<td>${fmtDupont(v, r.fmt)}</td>`;
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+  } else {
+    // Time-series: one bank, quarters as columns
+    const bank = STATE.dupontBank;
+    const allQ = DATA.quarters || [];
+    const quarters = allQ.filter(q2 => dq.RoE?.[bank]?.[q2] != null).slice(-16);
+
+    html = `<div class="table-wrap"><table class="dupont-table"><thead><tr><th>#</th><th>Line Item</th><th>Op</th>`;
+    quarters.forEach(q2 => { html += `<th>${q2}</th>`; });
+    html += '</tr></thead><tbody>';
+
+    let rowNum = 0;
+    rows.forEach(r => {
+      if(r.sep) {
+        html += '<tr class="separator"><td colspan="' + (3+quarters.length) + '"></td></tr>';
+        return;
+      }
+      rowNum++;
+      const cls = r.green ? 'result' : (r.bold ? 'subtotal' : '');
+      html += `<tr class="${cls}"><td>${rowNum}</td><td>${r.label}</td><td>${r.op}</td>`;
+      quarters.forEach(q2 => {
+        const bankData = {};
+        Object.keys(dq).forEach(comp => { bankData[comp] = dq[comp]?.[bank]?.[q2] ?? null; });
+        const v = getVal(r.src, r.calc, bankData);
+        html += `<td>${fmtDupont(v, r.fmt)}</td>`;
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+  }
+
+  document.getElementById('dupont-content').innerHTML = html;
+}
+
+/* ═══════════════════════ 9. OPERATIONAL KPIs ═══════════════════════ */
+function renderOpKPI() {
+  const ctrl = document.getElementById('ctrl-opkpi');
+  if(!ctrl.children.length) {
+    // Mode toggle
+    const modeRow = document.createElement('div');
+    modeRow.className = 'ctrl-row';
+    modeRow.innerHTML = '<span class="ctrl-label">Mode</span>';
+    ['cross','time'].forEach(mode => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn' + (STATE.opkpiMode === mode ? ' active' : '');
+      btn.textContent = mode === 'cross' ? 'Cross-Bank' : 'Time-Series';
+      btn.setAttribute('data-opmode', mode);
+      btn.onclick = () => {
+        STATE.opkpiMode = mode;
+        ctrl.querySelectorAll('[data-opmode]').forEach(b => b.classList.toggle('active', b.getAttribute('data-opmode') === mode));
+        renderOpKPIContent();
+      };
+      modeRow.appendChild(btn);
+    });
+    ctrl.appendChild(modeRow);
+
+    // Metric selector
+    const selRow = document.createElement('div');
+    selRow.className = 'ctrl-row';
+    selRow.innerHTML = '<span class="ctrl-label">Metric</span>';
+    const sel = document.createElement('select');
+    sel.className = 'ctrl-select';
+    sel.id = 'opkpi-metric-select';
+    const novelMetrics = Object.keys(DATA.novel_metrics || {}).sort();
+    novelMetrics.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m.replace(/_/g, ' ');
+      if(m === STATE.opkpiMetric) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.onchange = () => { STATE.opkpiMetric = sel.value; renderOpKPIContent(); };
+    selRow.appendChild(sel);
+    ctrl.appendChild(selRow);
+
+    buildBankSelector('ctrl-opkpi', {onChange: renderOpKPIContent});
+  }
+
+  renderOpKPIContent();
+}
+
+function renderOpKPIContent() {
+  const nm = DATA.novel_metrics;
+  if(!nm) return;
+  const div = document.getElementById('opkpi-charts');
+  const metric = STATE.opkpiMetric;
+  const banks = selectedBanksArray();
+  const q = STATE.selectedQuarter;
+
+  if(STATE.opkpiMode === 'cross') {
+    // Bar chart for selected metric at selected quarter
+    let data = banks.map(b => {
+      const val = nm[metric]?.[b]?.[q] ?? null;
+      return {bank:b, val};
+    }).filter(d => d.val != null);
+    data.sort((a,b) => b.val - a.val);
+
+    div.innerHTML = `<div class="chart-grid cols-1"><div class="chart-box"><h3>${metric.replace(/_/g,' ')} - ${q}</h3><div class="plot" id="opkpi-plot" style="min-height:400px;"></div></div></div>`;
+
+    Plotly.newPlot('opkpi-plot', [{
+      x: data.map(d => d.bank), y: data.map(d => d.val), type:'bar',
+      marker:{color: data.map((_,j) => COLORS[j % COLORS.length])},
+      text: data.map(d => fmtIndian(Math.round(d.val))), textposition:'outside', textfont:{size:9}
+    }], getPlotlyLayout('', {showlegend:false}), PLOTLY_CONFIG);
+
+  } else {
+    // Time-series for one metric, all selected banks
+    const quarters = getLastNQuarters(20);
+    div.innerHTML = `<div class="chart-grid cols-1"><div class="chart-box"><h3>${metric.replace(/_/g,' ')} Trend</h3><div class="plot" id="opkpi-plot" style="min-height:400px;"></div></div></div>`;
+
+    const traces = banks.map((b,j) => ({
+      x: quarters,
+      y: quarters.map(q2 => nm[metric]?.[b]?.[q2] ?? null),
+      name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5}, connectgaps:true
+    }));
+    Plotly.newPlot('opkpi-plot', traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+  }
+}
+
+/* ═══════════════════════ 10. SECTOR & SYSTEM ═══════════════════════ */
+function renderSector() {
+  if(rendered.sector) return;
+  rendered.sector = true;
+
+  const div = document.getElementById('sector-charts');
+  div.innerHTML = '<div class="chart-grid cols-2" id="sector-grid"></div>';
+  const grid = document.getElementById('sector-grid');
+
+  // 1. RBI Fortnightly credit/deposit growth
+  const rbi = DATA.rbi_fortnightly;
+  if(rbi && rbi.dates) {
+    const dates = rbi.dates.map(d => d.substring(0,10));
+    grid.innerHTML += `<div class="chart-box"><h3>System Credit &amp; Deposit Growth (YoY %)</h3><div class="plot" id="sec-rbi-growth"></div></div>`;
+    grid.innerHTML += `<div class="chart-box"><h3>System CD Ratio</h3><div class="plot" id="sec-cd-ratio"></div></div>`;
+
+    setTimeout(() => {
+      Plotly.newPlot('sec-rbi-growth', [
+        {x:dates, y:rbi.advances_yoy_pct, name:'Credit Growth', mode:'lines', line:{color:COLORS[0], width:1.5}},
+        {x:dates, y:rbi.deposits_yoy_pct, name:'Deposit Growth', mode:'lines', line:{color:COLORS[1], width:1.5}}
+      ], getPlotlyLayout(''), PLOTLY_CONFIG);
+
+      Plotly.newPlot('sec-cd-ratio', [
+        {x:dates, y:rbi.cd_ratio, name:'CD Ratio', mode:'lines', line:{color:COLORS[2], width:1.5}, fill:'tozeroy', fillcolor:'rgba(245,158,11,0.1)'}
+      ], getPlotlyLayout('', {showlegend:false}), PLOTLY_CONFIG);
+    }, 50);
+  }
+
+  // 2. System deposits & advances
+  const sd = DATA.system_data;
+  if(sd && sd.year) {
+    grid.innerHTML += `<div class="chart-box"><h3>System Deposits &amp; Credit (Rs Cr)</h3><div class="plot" id="sec-sys-abs"></div></div>`;
+    grid.innerHTML += `<div class="chart-box"><h3>System CASA Ratio</h3><div class="plot" id="sec-sys-casa"></div></div>`;
+
+    setTimeout(() => {
+      Plotly.newPlot('sec-sys-abs', [
+        {x:sd.year, y:sd.deposits, name:'Deposits', mode:'lines', fill:'tozeroy', line:{color:COLORS[0]}, fillcolor:'rgba(59,130,246,0.1)'},
+        {x:sd.year, y:sd.credit, name:'Credit', mode:'lines', fill:'tozeroy', line:{color:COLORS[1]}, fillcolor:'rgba(16,185,129,0.1)'}
+      ], getPlotlyLayout(''), PLOTLY_CONFIG);
+
+      if(sd.casa_ratio) {
+        Plotly.newPlot('sec-sys-casa', [
+          {x:sd.year, y:sd.casa_ratio.map(v => v != null ? v*100 : null), name:'CASA Ratio %', mode:'lines', line:{color:COLORS[3], width:2}}
+        ], getPlotlyLayout('', {showlegend:false}), PLOTLY_CONFIG);
+      }
+    }, 100);
+  }
+
+  // 3. CASA by group
+  const cg = DATA.casa_by_group;
+  if(cg && cg['CASA Ratio %']) {
+    grid.innerHTML += `<div class="chart-box"><h3>CASA Ratio by Bank Group (%)</h3><div class="plot" id="sec-casa-group"></div></div>`;
+    setTimeout(() => {
+      const casaR = cg['CASA Ratio %'];
+      const groups = Object.keys(casaR);
+      const traces = groups.map((g,i) => {
+        const years = Object.keys(casaR[g]).sort();
+        return {
+          x: years, y: years.map(y => casaR[g][y] != null ? casaR[g][y] * 100 : null),
+          name: g, mode:'lines', line:{color:COLORS[i % COLORS.length], width:1.5}, connectgaps:true
+        };
+      });
+      Plotly.newPlot('sec-casa-group', traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+    }, 150);
+  }
+
+  // 4. Credit cards
+  const cc = DATA.credit_cards;
+  if(cc && cc.cards_outstanding) {
+    grid.innerHTML += `<div class="chart-box"><h3>Credit Cards Outstanding (Mn)</h3><div class="plot" id="sec-cc"></div></div>`;
+    setTimeout(() => {
+      const banks = Object.keys(cc.cards_outstanding);
+      const traces = banks.slice(0,8).map((b,i) => {
+        const d = cc.cards_outstanding[b];
+        // dates may be epoch-based or real dates
+        let dates = d.dates || [];
+        let vals = d.values || [];
+        // Try to parse dates
+        dates = dates.map(dt => {
+          if(typeof dt === 'string' && dt.includes('T')) return dt.substring(0,10);
+          return String(dt);
+        });
+        return {x:dates, y:vals, name:b, mode:'lines', line:{color:COLORS[i], width:1.5}, connectgaps:true};
+      });
+      Plotly.newPlot('sec-cc', traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+    }, 200);
+  }
+
+  // 5. Deposit rates
+  const dr = DATA.deposit_rates;
+  if(dr) {
+    grid.innerHTML += `<div class="chart-box"><h3>Savings Account Rate Comparison</h3><div class="plot" id="sec-sa-rates"></div></div>`;
+    setTimeout(() => {
+      const topBanks = ['SBIN','HDFCB','ICICIBC','AXSB','KMB','AUBANK','EQUITASB'].filter(b => dr[b]);
+      const traces = topBanks.map((b,i) => {
+        const saData = dr[b]?.['SA_0.1mn_to_1mn'] || dr[b]?.[Object.keys(dr[b])[0]];
+        if(!saData) return null;
+        return {
+          x: (saData.dates || []).map(d => d.substring(0,10)),
+          y: saData.values || [],
+          name: b, mode:'lines+markers', line:{color:COLORS[i], width:1.5},
+          marker:{size:4}, connectgaps:true
+        };
+      }).filter(Boolean);
+      Plotly.newPlot('sec-sa-rates', traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+    }, 250);
+  }
+}
+
+/* ─────────────────────── INIT ─────────────────────── */
+function initApp() {
+  initNav();
+  initTheme();
+  renderPage('overview');
+}
+
+// Boot
+loadData();
+
+})();
+</script>
 </body>
 </html>
