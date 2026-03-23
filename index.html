@@ -116,6 +116,28 @@ body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; b
 @keyframes spin { to { transform:rotate(360deg); } }
 .error-msg { text-align:center; padding:40px; color: var(--red); font-size:13px; }
 
+/* ═══════════════════════ MODE PILLS (Q/A toggle) ═══════════════════════ */
+.mode-pill { padding:4px 12px; border-radius:4px; font-size:11px; cursor:pointer; border:1px solid var(--border); color: var(--dimmed); background:transparent; font-weight:700; transition:all 0.12s; text-transform:uppercase; letter-spacing:0.5px; }
+.mode-pill:hover { border-color: var(--accent); color: var(--accent); }
+.mode-pill.active { background: var(--accent); color:#fff; border-color: var(--accent); }
+
+/* ═══════════════════════ ANNUAL DEEP DIVE TABLE ═══════════════════════ */
+.annual-wrap { overflow:auto; border:1px solid var(--border); border-radius:8px; max-height:80vh; }
+.annual-table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+.annual-table th { background: var(--card); color: var(--dimmed); padding:7px 10px; text-align:right; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:0.4px; position:sticky; top:0; z-index:2; border-bottom:2px solid var(--border); white-space:nowrap; }
+.annual-table th:first-child { text-align:left; position:sticky; left:0; z-index:4; background: var(--card); min-width:180px; }
+.annual-table td { padding:5px 10px; border-bottom:1px solid rgba(51,65,85,0.25); text-align:right; white-space:nowrap; }
+.annual-table td:first-child { text-align:left; font-weight:600; position:sticky; left:0; background: var(--card); z-index:1; min-width:180px; }
+.annual-table tr:nth-child(even) td { background: var(--alt-row); }
+.annual-table tr:nth-child(even) td:first-child { background: var(--alt-row); }
+.annual-table tr:hover td { background: var(--hover) !important; }
+.annual-group-hdr td { background: rgba(59,130,246,0.12) !important; color: var(--accent); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.6px; text-align:left !important; padding:8px 10px; border-bottom:2px solid var(--accent); }
+
+/* Year pills */
+.yr-pill { padding:3px 7px; border-radius:4px; font-size:10px; cursor:pointer; border:1px solid var(--border); color: var(--dimmed); background:transparent; transition:all 0.12s; font-family:'Segoe UI',monospace; }
+.yr-pill:hover { border-color: var(--accent); color: var(--text); }
+.yr-pill.active { background: var(--accent); color:#fff; border-color: var(--accent); }
+
 /* ═══════════════════════ SCROLLBAR ═══════════════════════ */
 ::-webkit-scrollbar { width:6px; height:6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -153,6 +175,7 @@ body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; b
   <div class="nav-section">Data</div>
   <div class="nav-item" data-page="table">Detailed Table</div>
   <div class="nav-item" data-page="timeseries">Time Series</div>
+  <div class="nav-item" data-page="annualdive">Annual Deep Dive</div>
   <div class="nav-section">Decomposition</div>
   <div class="nav-item" data-page="dupont">DuPont RoE Tree</div>
   <div class="nav-section">Franchise</div>
@@ -225,6 +248,14 @@ body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; b
     <div id="timeseries-table"></div>
   </div>
 
+  <!-- ANNUAL DEEP DIVE -->
+  <div id="page-annualdive" class="page">
+    <div class="page-title">Annual Deep Dive</div>
+    <div class="page-sub">Full annual metrics table for a single bank (FY data)</div>
+    <div class="controls" id="ctrl-annualdive"></div>
+    <div id="annualdive-content"></div>
+  </div>
+
   <!-- DUPONT -->
   <div id="page-dupont" class="page">
     <div class="page-title">DuPont RoE Decomposition</div>
@@ -278,12 +309,17 @@ let STATE = {
   dupontBank: 'HDFCB',
   tsMetric: 'RoE',
   opkpiMetric: 'CASA_per_branch',
-  opkpiMode: 'cross'
+  opkpiMode: 'cross',
+  annualDiveBank: 'HDFCB',
+  overviewMode: 'quarterly',   // 'quarterly' or 'annual'
+  profitMode: 'quarterly',     // 'quarterly' or 'annual'
+  selectedYear: '2024'
 };
 
 /* ─────────────────────── DATA LOADING ─────────────────────── */
 const FILES = ['meta','quarterly_metrics','dupont_quarterly','quarters','years',
-  'novel_metrics','rbi_fortnightly','system_data','casa_by_group','credit_cards','deposit_rates'];
+  'novel_metrics','rbi_fortnightly','system_data','casa_by_group','credit_cards','deposit_rates',
+  'annual_metrics','annual_averages'];
 
 async function loadData() {
   const results = await Promise.allSettled(
@@ -384,6 +420,33 @@ function fmtVal(v, metric) {
   if(pctMetrics.includes(metric)) return fmtPct(v, metric === 'RoA' || metric === 'NIM' ? 2 : 1);
   if(absMetrics.includes(metric)) return fmtIndian(Math.round(v));
   return typeof v === 'number' ? v.toFixed(2) : String(v);
+}
+
+/* Get annual metric value for a bank (annual_metrics uses display names) */
+function getAnnualMetric(metricName, ticker, year) {
+  const am = DATA.annual_metrics;
+  if (!am || !am[metricName]) return null;
+  const displayName = DATA.meta.bank_display_names[ticker];
+  if (!displayName || !am[metricName][displayName]) return null;
+  return am[metricName][displayName][String(year)] ?? null;
+}
+
+/* Format annual metric value based on metric group */
+function fmtAnnualVal(v, metric, group) {
+  if (v == null || isNaN(v)) return '\u2014';
+  if (group === 'pct' || group === 'growth' || group === 'aq_pct' || group === 'capital' || group === 'yields') return v.toFixed(1) + '%';
+  if (group === 'mult') return v.toFixed(1) + 'x';
+  if (group === 'pershare') return v.toFixed(2);
+  if (group === 'abs') return fmtIndian(Math.round(v));
+  if (group === 'franchise_num') return fmtIndian(Math.round(v));
+  if (group === 'franchise_pct') return v.toFixed(1) + '%';
+  return typeof v === 'number' ? v.toFixed(2) : String(v);
+}
+
+/* Get last N years from the years list */
+function getLastNYears(n) {
+  const yrs = (DATA.years || []).filter(y => y <= 2024);
+  return yrs.slice(Math.max(0, yrs.length - n));
 }
 
 function getPlotlyLayout(title, extra) {
@@ -561,6 +624,7 @@ function renderPage(name) {
     case 'capital': renderCapital(); break;
     case 'table': renderTable(); break;
     case 'timeseries': renderTimeSeries(); break;
+    case 'annualdive': renderAnnualDive(); break;
     case 'dupont': renderDuPont(); break;
     case 'opkpi': renderOpKPI(); break;
     case 'sector': renderSector(); break;
@@ -571,13 +635,71 @@ function renderPage(name) {
 function renderOverview() {
   const ctrl = document.getElementById('ctrl-overview');
   if(!ctrl.children.length) {
-    buildBankSelector('ctrl-overview', {onChange: renderOverview});
+    // Mode toggle row (Q/A)
+    const modeRow = document.createElement('div');
+    modeRow.className = 'ctrl-row';
+    modeRow.innerHTML = '<span class="ctrl-label">Mode</span>';
+    ['quarterly','annual'].forEach(mode => {
+      const btn = document.createElement('button');
+      btn.className = 'mode-pill' + (STATE.overviewMode === mode ? ' active' : '');
+      btn.textContent = mode.toUpperCase();
+      btn.setAttribute('data-ovmode', mode);
+      btn.onclick = () => {
+        STATE.overviewMode = mode;
+        ctrl.querySelectorAll('[data-ovmode]').forEach(b => b.classList.toggle('active', b.getAttribute('data-ovmode') === mode));
+        // Show/hide quarter vs year pills
+        const qRow = ctrl.querySelector('[data-role="quarters"]');
+        const yRow = ctrl.querySelector('[data-role="years"]');
+        if(qRow) qRow.style.display = mode === 'quarterly' ? 'flex' : 'none';
+        if(yRow) yRow.style.display = mode === 'annual' ? 'flex' : 'none';
+        renderOverviewContent();
+      };
+      modeRow.appendChild(btn);
+    });
+    ctrl.appendChild(modeRow);
+
+    buildBankSelector('ctrl-overview', {onChange: renderOverviewContent});
+
+    // Year pills row (hidden by default)
+    const yRow = document.createElement('div');
+    yRow.className = 'ctrl-row';
+    yRow.style.display = STATE.overviewMode === 'annual' ? 'flex' : 'none';
+    yRow.innerHTML = '<span class="ctrl-label">Year</span>';
+    yRow.setAttribute('data-role', 'years');
+    const yrs = getLastNYears(15);
+    yrs.forEach(y => {
+      const pill = document.createElement('button');
+      pill.className = 'yr-pill' + (String(y) === STATE.selectedYear ? ' active' : '');
+      pill.textContent = 'FY' + String(y).slice(-2);
+      pill.setAttribute('data-yr', String(y));
+      pill.onclick = () => {
+        STATE.selectedYear = String(y);
+        ctrl.querySelectorAll('.yr-pill').forEach(p => p.classList.toggle('active', p.getAttribute('data-yr') === String(y)));
+        renderOverviewContent();
+      };
+      yRow.appendChild(pill);
+    });
+    ctrl.appendChild(yRow);
+  }
+  renderOverviewContent();
+}
+
+function renderOverviewContent() {
+  const banks = selectedBanksArray();
+  const isAnnual = STATE.overviewMode === 'annual';
+
+  // Annual metric key mapping (quarterly key -> annual key)
+  const annualKeyMap = {RoE:'ROE', RoA:'ROA', NIM:'NIM', GNPA_ratio:'GNPA', Credit_cost:'Credit_cost', CASA_ratio:'CASA PER'};
+
+  function getVal(metricQ, bank) {
+    if (isAnnual) {
+      const annKey = annualKeyMap[metricQ] || metricQ;
+      return getAnnualMetric(annKey, bank, STATE.selectedYear);
+    }
+    return qmVal(metricQ, bank, STATE.selectedQuarter);
   }
 
-  const qm = DATA.quarterly_metrics;
-  if(!qm) return;
-  const q = STATE.selectedQuarter;
-  const banks = selectedBanksArray();
+  const periodLabel = isAnnual ? 'FY' + STATE.selectedYear.slice(-2) : STATE.selectedQuarter;
 
   // Summary cards
   const summaryMetrics = [
@@ -586,7 +708,7 @@ function renderOverview() {
   ];
   const summaryDiv = document.getElementById('overview-summary');
   summaryDiv.innerHTML = summaryMetrics.map(m => {
-    const vals = banks.map(b => qmVal(m.key, b, q)).filter(v => v != null);
+    const vals = banks.map(b => getVal(m.key, b)).filter(v => v != null);
     const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
     const cls = m.key === 'GNPA_ratio' ? (avg > 3 ? 'red' : '') : (avg != null && avg > 0 ? '' : 'red');
     return `<div class="summary-card"><div class="label">${m.label}</div><div class="value ${cls}">${fmtPct(avg, m.key==='RoA'||m.key==='NIM'?2:1)}</div></div>`;
@@ -599,10 +721,10 @@ function renderOverview() {
   ];
 
   const chartsDiv = document.getElementById('overview-charts');
-  chartsDiv.innerHTML = chartMetrics.map((m,i) => `<div class="chart-box"><h3>${m.title} - ${q}</h3><div class="plot" id="ov-chart-${i}"></div></div>`).join('');
+  chartsDiv.innerHTML = chartMetrics.map((m,i) => `<div class="chart-box"><h3>${m.title} - ${periodLabel}</h3><div class="plot" id="ov-chart-${i}"></div></div>`).join('');
 
   chartMetrics.forEach((m, i) => {
-    let data = banks.map(b => ({bank:b, val: qmVal(m.key, b, q)})).filter(d => d.val != null);
+    let data = banks.map(b => ({bank:b, val: getVal(m.key, b)})).filter(d => d.val != null);
     data.sort((a,b) => b.val - a.val);
     Plotly.newPlot(`ov-chart-${i}`, [{
       x: data.map(d => d.bank), y: data.map(d => d.val), type:'bar',
@@ -616,52 +738,117 @@ function renderOverview() {
 function renderProfitability() {
   const ctrl = document.getElementById('ctrl-profitability');
   if(!ctrl.children.length) {
-    buildBankSelector('ctrl-profitability', {onChange: renderProfitability});
+    // Mode toggle row (Q/A)
+    const modeRow = document.createElement('div');
+    modeRow.className = 'ctrl-row';
+    modeRow.innerHTML = '<span class="ctrl-label">Mode</span>';
+    ['quarterly','annual'].forEach(mode => {
+      const btn = document.createElement('button');
+      btn.className = 'mode-pill' + (STATE.profitMode === mode ? ' active' : '');
+      btn.textContent = mode.toUpperCase();
+      btn.setAttribute('data-pfmode', mode);
+      btn.onclick = () => {
+        STATE.profitMode = mode;
+        ctrl.querySelectorAll('[data-pfmode]').forEach(b => b.classList.toggle('active', b.getAttribute('data-pfmode') === mode));
+        renderProfitabilityContent();
+      };
+      modeRow.appendChild(btn);
+    });
+    ctrl.appendChild(modeRow);
+
+    buildBankSelector('ctrl-profitability', {onChange: renderProfitabilityContent});
   }
+  renderProfitabilityContent();
+}
 
-  const qm = DATA.quarterly_metrics;
-  if(!qm) return;
+function renderProfitabilityContent() {
   const banks = selectedBanksArray();
-  const quarters = getLastNQuarters(20);
-  const q = STATE.selectedQuarter;
+  const isAnnual = STATE.profitMode === 'annual';
 
-  const chartDefs = [
-    {key:'RoE', title:'RoE (%) Trend', type:'line'},
-    {key:'RoA', title:'RoA (%) Trend', type:'line'},
-    {key:'NIM', title:'NIM (%) Trend', type:'line'},
-    {key:'Cost-income', title:'Cost-to-Income (%) Trend', type:'line'},
-    {key:'_scatter', title:`Yield on Assets vs Cost of Funds - ${q}`, type:'scatter'},
-    {key:'Credit_cost', title:'Credit Cost (%) Trend', type:'line'}
-  ];
+  if (isAnnual) {
+    // Annual mode: line charts using annual_metrics
+    const am = DATA.annual_metrics;
+    if (!am) return;
+    const years = getLastNYears(20).map(String);
+    const annualChartDefs = [
+      {key:'ROE', title:'RoE (%) Annual Trend'},
+      {key:'ROA', title:'RoA (%) Annual Trend'},
+      {key:'NIM', title:'NIM (%) Annual Trend'},
+      {key:'Cost_to_income', title:'Cost-to-Income (%) Annual Trend'},
+      {key:'_scatter_annual', title:`Yield on Assets vs CoF - FY${STATE.selectedYear.slice(-2)}`},
+      {key:'Credit_cost', title:'Credit Cost (%) Annual Trend'}
+    ];
 
-  const div = document.getElementById('profitability-charts');
-  div.innerHTML = chartDefs.map((c,i) => `<div class="chart-box"><h3>${c.title}</h3><div class="plot" id="prof-chart-${i}"></div></div>`).join('');
+    const div = document.getElementById('profitability-charts');
+    div.innerHTML = annualChartDefs.map((c,i) => `<div class="chart-box"><h3>${c.title}</h3><div class="plot" id="prof-chart-${i}"></div></div>`).join('');
 
-  chartDefs.forEach((c, i) => {
-    if(c.key === '_scatter') {
-      // Yield vs CoF scatter
-      const traces = [{
-        x: banks.map(b => qmVal('Cost_of_funds', b, q)),
-        y: banks.map(b => qmVal('Yield_on_assets', b, q)),
-        text: banks, mode:'markers+text', textposition:'top center', textfont:{size:9},
-        marker:{size:10, color: banks.map((b,j) => bankColor(b, banks))},
-        type:'scatter'
-      }];
-      Plotly.newPlot(`prof-chart-${i}`, traces, getPlotlyLayout('', {
-        showlegend:false,
-        xaxis:{...getPlotlyLayout().xaxis, title:'Cost of Funds (%)'},
-        yaxis:{...getPlotlyLayout().yaxis, title:'Yield on Assets (%)'}
-      }), PLOTLY_CONFIG);
-    } else {
-      // Line chart
-      const traces = banks.map((b,j) => ({
-        x: quarters, y: quarters.map(q2 => qmVal(c.key, b, q2)),
-        name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5},
-        connectgaps:true
-      }));
-      Plotly.newPlot(`prof-chart-${i}`, traces, getPlotlyLayout(''), PLOTLY_CONFIG);
-    }
-  });
+    annualChartDefs.forEach((c, i) => {
+      if (c.key === '_scatter_annual') {
+        const yr = STATE.selectedYear;
+        const traces = [{
+          x: banks.map(b => getAnnualMetric('CoF', b, yr)),
+          y: banks.map(b => getAnnualMetric('Yield on assets', b, yr)),
+          text: banks, mode:'markers+text', textposition:'top center', textfont:{size:9},
+          marker:{size:10, color: banks.map((b,j) => bankColor(b, banks))},
+          type:'scatter'
+        }];
+        Plotly.newPlot(`prof-chart-${i}`, traces, getPlotlyLayout('', {
+          showlegend:false,
+          xaxis:{...getPlotlyLayout().xaxis, title:'Cost of Funds (%)'},
+          yaxis:{...getPlotlyLayout().yaxis, title:'Yield on Assets (%)'}
+        }), PLOTLY_CONFIG);
+      } else {
+        const traces = banks.map((b,j) => ({
+          x: years.map(y => 'FY'+y.slice(-2)),
+          y: years.map(y => getAnnualMetric(c.key, b, y)),
+          name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5}, connectgaps:true
+        }));
+        Plotly.newPlot(`prof-chart-${i}`, traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+      }
+    });
+  } else {
+    // Quarterly mode (original)
+    const qm = DATA.quarterly_metrics;
+    if(!qm) return;
+    const quarters = getLastNQuarters(20);
+    const q = STATE.selectedQuarter;
+
+    const chartDefs = [
+      {key:'RoE', title:'RoE (%) Trend', type:'line'},
+      {key:'RoA', title:'RoA (%) Trend', type:'line'},
+      {key:'NIM', title:'NIM (%) Trend', type:'line'},
+      {key:'Cost-income', title:'Cost-to-Income (%) Trend', type:'line'},
+      {key:'_scatter', title:`Yield on Assets vs Cost of Funds - ${q}`, type:'scatter'},
+      {key:'Credit_cost', title:'Credit Cost (%) Trend', type:'line'}
+    ];
+
+    const div = document.getElementById('profitability-charts');
+    div.innerHTML = chartDefs.map((c,i) => `<div class="chart-box"><h3>${c.title}</h3><div class="plot" id="prof-chart-${i}"></div></div>`).join('');
+
+    chartDefs.forEach((c, i) => {
+      if(c.key === '_scatter') {
+        const traces = [{
+          x: banks.map(b => qmVal('Cost_of_funds', b, q)),
+          y: banks.map(b => qmVal('Yield_on_assets', b, q)),
+          text: banks, mode:'markers+text', textposition:'top center', textfont:{size:9},
+          marker:{size:10, color: banks.map((b,j) => bankColor(b, banks))},
+          type:'scatter'
+        }];
+        Plotly.newPlot(`prof-chart-${i}`, traces, getPlotlyLayout('', {
+          showlegend:false,
+          xaxis:{...getPlotlyLayout().xaxis, title:'Cost of Funds (%)'},
+          yaxis:{...getPlotlyLayout().yaxis, title:'Yield on Assets (%)'}
+        }), PLOTLY_CONFIG);
+      } else {
+        const traces = banks.map((b,j) => ({
+          x: quarters, y: quarters.map(q2 => qmVal(c.key, b, q2)),
+          name: b, mode:'lines', line:{color:bankColor(b, banks), width:1.5},
+          connectgaps:true
+        }));
+        Plotly.newPlot(`prof-chart-${i}`, traces, getPlotlyLayout(''), PLOTLY_CONFIG);
+      }
+    });
+  }
 }
 
 /* ═══════════════════════ 3. GROWTH ═══════════════════════ */
@@ -1291,6 +1478,110 @@ function renderSector() {
       Plotly.newPlot('sec-sa-rates', traces, getPlotlyLayout(''), PLOTLY_CONFIG);
     }, 250);
   }
+}
+
+/* ═══════════════════════ ANNUAL DEEP DIVE ═══════════════════════ */
+function renderAnnualDive() {
+  const ctrl = document.getElementById('ctrl-annualdive');
+  if(!ctrl.children.length) {
+    const bankRow = document.createElement('div');
+    bankRow.className = 'ctrl-row';
+    bankRow.innerHTML = '<span class="ctrl-label">Bank</span>';
+    const bankSel = document.createElement('select');
+    bankSel.className = 'ctrl-select';
+    bankSel.id = 'annualdive-bank-select';
+    STATE.activeBanks.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = `${t} - ${bankName(t)}`;
+      if(t === STATE.annualDiveBank) opt.selected = true;
+      bankSel.appendChild(opt);
+    });
+    bankSel.onchange = () => { STATE.annualDiveBank = bankSel.value; renderAnnualDiveContent(); };
+    bankRow.appendChild(bankSel);
+    ctrl.appendChild(bankRow);
+  }
+  renderAnnualDiveContent();
+}
+
+function renderAnnualDiveContent() {
+  const am = DATA.annual_metrics;
+  if(!am) { document.getElementById('annualdive-content').innerHTML = '<div class="error-msg">Annual metrics not loaded.</div>'; return; }
+
+  const ticker = STATE.annualDiveBank;
+  const years = getLastNYears(15).map(String).reverse(); // most recent first
+
+  // Metric groups definition
+  const groups = [
+    { name: 'Profitability', fmt: 'pct', metrics: [
+      {key:'ROE',label:'ROE (%)'},{key:'ROA',label:'ROA (%)'},{key:'NIM',label:'NIM (%)'},
+      {key:'Cost_to_income',label:'Cost-to-Income (%)'},{key:'Credit_cost',label:'Credit Cost (%)'},
+      {key:'PPOP_avg_assets',label:'PPOP / Avg Assets (%)'},{key:'NII_on_AA',label:'NII / Avg Assets (%)'}
+    ]},
+    { name: 'P&L (Rs Cr)', fmt: 'abs', metrics: [
+      {key:'Interest_income',label:'Interest Income'},{key:'Interest_expense',label:'Interest Expense'},
+      {key:'NII',label:'NII'},{key:'Fee income',label:'Fee Income'},{key:'Otherincome',label:'Other Income'},
+      {key:'Revenue',label:'Revenue'},{key:'OpEx',label:'OpEx'},{key:'Staff',label:'Staff Cost'},
+      {key:'PPOP',label:'PPOP'},{key:'LLP',label:'LLP'},{key:'PBT',label:'PBT'},
+      {key:'Tax',label:'Tax'},{key:'PAT',label:'PAT'}
+    ]},
+    { name: 'Growth (%)', fmt: 'pct', metrics: [
+      {key:'NII_growth',label:'NII Growth'},{key:'PAT_growth',label:'PAT Growth'},
+      {key:'Revenue_growth',label:'Revenue Growth'},{key:'Advances_growth',label:'Advances Growth'},
+      {key:'Deposit growth',label:'Deposit Growth'}
+    ]},
+    { name: 'Balance Sheet (Rs Cr)', fmt: 'abs', metrics: [
+      {key:'ADVANCES',label:'Advances'},{key:'DEPOSITS',label:'Deposits'},
+      {key:'ASSET',label:'Total Assets'},{key:'EQUITY',label:'Equity'},
+      {key:'BORROWING',label:'Borrowings'},{key:'INVESTMENT',label:'Investments'},
+      {key:'CASA',label:'CASA'},{key:'SA',label:'Savings'},{key:'CA',label:'Current'},
+      {key:'Term_deposits',label:'Term Deposits'}
+    ]},
+    { name: 'Per Share', fmt: 'pershare', metrics: [
+      {key:'EPS',label:'EPS'},{key:'BVPS',label:'BVPS'},{key:'ABVPS',label:'Adj BVPS'},
+      {key:'DPS',label:'DPS'},{key:'PPoPPS',label:'PPoPPS'}
+    ]},
+    { name: 'Asset Quality', fmt: 'pct', metrics: [
+      {key:'GNPA',label:'GNPA (%)'},{key:'NNPA',label:'NNPA (%)'},
+      {key:'Credit_cost',label:'Credit Cost (%)'},{key:'LLP-PPOP',label:'LLP/PPOP (%)'}
+    ]},
+    { name: 'Capital', fmt: 'pct', metrics: [
+      {key:'CAR',label:'CAR (%)'},{key:'CET1',label:'CET1 (%)'},
+      {key:'Tier-I',label:'Tier-I (%)'},{key:'D to E',label:'D/E (x)',f:'mult'}
+    ]},
+    { name: 'Franchise', fmt: 'franchise', metrics: [
+      {key:'Branches',label:'Branches',f:'franchise_num'},{key:'Employees',label:'Employees',f:'franchise_num'},
+      {key:'CASA PER',label:'CASA %',f:'franchise_pct'},{key:'CD Ratio',label:'CD Ratio %',f:'franchise_pct'},
+      {key:'CASA_per_branch',label:'CASA/Branch (Rs Cr)',f:'abs'},{key:'Avg_emp_cost',label:'Avg Employee Cost',f:'abs'}
+    ]},
+    { name: 'Yields & Costs', fmt: 'pct', metrics: [
+      {key:'YoA',label:'Yield on Assets (%)'},{key:'CoF',label:'Cost of Funds (%)'},
+      {key:'Yield on assets',label:'Yield on Assets (calc) (%)'},
+      {key:'Cost_average_assets',label:'Cost / Avg Assets (%)'},
+      {key:'Staff_cost_average_assets',label:'Staff Cost / Avg Assets (%)'}
+    ]}
+  ];
+
+  let html = '<div class="annual-wrap"><table class="annual-table"><thead><tr><th>Metric</th>';
+  years.forEach(y => { html += `<th>FY${y.slice(-2)}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  groups.forEach(g => {
+    // Group header
+    html += `<tr class="annual-group-hdr"><td colspan="${years.length + 1}">${g.name}</td></tr>`;
+    g.metrics.forEach(m => {
+      html += '<tr>';
+      html += `<td>${m.label}</td>`;
+      years.forEach(y => {
+        const v = getAnnualMetric(m.key, ticker, y);
+        const fmtGroup = m.f || g.fmt;
+        html += `<td>${fmtAnnualVal(v, m.key, fmtGroup)}</td>`;
+      });
+      html += '</tr>';
+    });
+  });
+
+  html += '</tbody></table></div>';
+  document.getElementById('annualdive-content').innerHTML = html;
 }
 
 /* ─────────────────────── INIT ─────────────────────── */
