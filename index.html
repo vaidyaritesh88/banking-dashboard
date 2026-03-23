@@ -306,6 +306,7 @@ let STATE = {
   selectedQuarter: '',
   selectedBanks: new Set(),
   dupontMode: 'cross',   // cross or time
+  dupontFreq: 'quarterly', // quarterly or annual
   dupontBank: 'HDFCB',
   tsMetric: 'RoE',
   opkpiMetric: 'CASA_per_branch',
@@ -313,11 +314,11 @@ let STATE = {
   annualDiveBank: 'HDFCB',
   overviewMode: 'quarterly',   // 'quarterly' or 'annual'
   profitMode: 'quarterly',     // 'quarterly' or 'annual'
-  selectedYear: '2024'
+  selectedYear: '2025'
 };
 
 /* ─────────────────────── DATA LOADING ─────────────────────── */
-const FILES = ['meta','quarterly_metrics','dupont_quarterly','quarters','years',
+const FILES = ['meta','quarterly_metrics','dupont_quarterly','dupont_annual','quarters','years',
   'novel_metrics','rbi_fortnightly','system_data','casa_by_group','credit_cards','deposit_rates',
   'annual_metrics','annual_averages'];
 
@@ -455,6 +456,7 @@ function fmtAnnualVal(v, metric, group) {
   if (group === 'abs') return fmtIndian(Math.round(v / 10)); // Rs Mn -> Rs Cr
   if (group === 'franchise_num') return fmtIndian(Math.round(v));
   if (group === 'franchise_pct') return v.toFixed(1) + '%';
+  if (group === 'franchise_cost') return v.toFixed(2); // Rs Mn per employee, display as-is
   return typeof v === 'number' ? v.toFixed(2) : String(v);
 }
 
@@ -1157,7 +1159,28 @@ function renderTimeSeriesContent() {
 function renderDuPont() {
   const ctrl = document.getElementById('ctrl-dupont');
   if(!ctrl.children.length) {
-    // Mode toggle
+    // Frequency toggle (Quarterly / Annual)
+    const freqRow = document.createElement('div');
+    freqRow.className = 'ctrl-row';
+    freqRow.innerHTML = '<span class="ctrl-label">Frequency</span>';
+    ['quarterly','annual'].forEach(freq => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-btn' + (STATE.dupontFreq === freq ? ' active' : '');
+      btn.textContent = freq.toUpperCase();
+      btn.setAttribute('data-freq', freq);
+      btn.onclick = () => {
+        STATE.dupontFreq = freq;
+        ctrl.querySelectorAll('[data-freq]').forEach(b => b.classList.toggle('active', b.getAttribute('data-freq') === freq));
+        // Show/hide year row
+        const yrRow = document.getElementById('dupont-year-row');
+        if(yrRow) yrRow.style.display = freq === 'annual' ? '' : 'none';
+        renderDuPontContent();
+      };
+      freqRow.appendChild(btn);
+    });
+    ctrl.appendChild(freqRow);
+
+    // Mode toggle (Cross-Bank / Time-Series)
     const modeRow = document.createElement('div');
     modeRow.className = 'ctrl-row';
     modeRow.innerHTML = '<span class="ctrl-label">Mode</span>';
@@ -1174,6 +1197,31 @@ function renderDuPont() {
       modeRow.appendChild(btn);
     });
     ctrl.appendChild(modeRow);
+
+    // Year selector for annual cross-bank mode
+    const yearRow = document.createElement('div');
+    yearRow.className = 'ctrl-row';
+    yearRow.id = 'dupont-year-row';
+    yearRow.style.display = STATE.dupontFreq === 'annual' ? '' : 'none';
+    yearRow.innerHTML = '<span class="ctrl-label">Year</span>';
+    const yrGrp = document.createElement('div');
+    yrGrp.className = 'pill-row';
+    yrGrp.id = 'dupont-year-pills';
+    const years = (DATA.years || []).filter(y => y >= 2007 && y <= 2025);
+    years.forEach(y => {
+      const pill = document.createElement('button');
+      pill.className = 'preset-btn' + (String(y) === STATE.selectedYear ? ' active' : '');
+      pill.textContent = 'FY' + String(y).slice(-2);
+      pill.setAttribute('data-dupont-year', String(y));
+      pill.onclick = () => {
+        STATE.selectedYear = String(y);
+        yrGrp.querySelectorAll('[data-dupont-year]').forEach(p => p.classList.toggle('active', p.getAttribute('data-dupont-year') === String(y)));
+        renderDuPontContent();
+      };
+      yrGrp.appendChild(pill);
+    });
+    yearRow.appendChild(yrGrp);
+    ctrl.appendChild(yearRow);
 
     // Bank selector for time mode
     const bankRow = document.createElement('div');
@@ -1201,11 +1249,13 @@ function renderDuPont() {
 }
 
 function renderDuPontContent() {
-  const dq = DATA.dupont_quarterly;
-  if(!dq) { document.getElementById('dupont-content').innerHTML = '<div class="error-msg">DuPont data not loaded.</div>'; return; }
+  const isAnnual = STATE.dupontFreq === 'annual';
+  const dataset = isAnnual ? DATA.dupont_annual : DATA.dupont_quarterly;
+  if(!dataset) { document.getElementById('dupont-content').innerHTML = '<div class="error-msg">DuPont data not loaded.</div>'; return; }
 
   const mode = STATE.dupontMode;
-  const q = STATE.selectedQuarter;
+  const period = isAnnual ? STATE.selectedYear : STATE.selectedQuarter;
+  const freqLabel = isAnnual ? 'FY' + String(STATE.selectedYear).slice(-2) : STATE.selectedQuarter;
 
   // DuPont row definitions
   const rows = [
@@ -1242,10 +1292,11 @@ function renderDuPontContent() {
   let html = '';
 
   if(mode === 'cross') {
-    // One quarter, all selected banks as columns
-    const banks = selectedBanksArray().filter(b => dq.RoE && dq.RoE[b]);
+    // Cross-bank: one period, all selected banks as columns
+    const banks = selectedBanksArray().filter(b => dataset.RoE && dataset.RoE[b]);
 
-    html = `<div class="table-wrap"><table class="dupont-table"><thead><tr><th>#</th><th>Line Item</th><th>Op</th>`;
+    html = `<p style="color:var(--accent);font-size:13px;margin-bottom:8px;">${isAnnual ? 'Annual' : 'Quarterly'} \u2014 ${freqLabel}</p>`;
+    html += `<div class="table-wrap"><table class="dupont-table"><thead><tr><th>#</th><th>Line Item</th><th>Op</th>`;
     banks.forEach(b => { html += `<th>${b}</th>`; });
     html += '</tr></thead><tbody>';
 
@@ -1260,7 +1311,7 @@ function renderDuPontContent() {
       html += `<tr class="${cls}"><td>${rowNum}</td><td>${r.label}</td><td>${r.op}</td>`;
       banks.forEach(b => {
         const bankData = {};
-        Object.keys(dq).forEach(comp => { bankData[comp] = dq[comp]?.[b]?.[q] ?? null; });
+        Object.keys(dataset).forEach(comp => { bankData[comp] = dataset[comp]?.[b]?.[period] ?? null; });
         const v = getVal(r.src, r.calc, bankData);
         html += `<td>${fmtDupont(v, r.fmt)}</td>`;
       });
@@ -1269,27 +1320,35 @@ function renderDuPontContent() {
 
     html += '</tbody></table></div>';
   } else {
-    // Time-series: one bank, quarters as columns
+    // Time-series: one bank, periods as columns
     const bank = STATE.dupontBank;
-    const allQ = DATA.quarters || [];
-    const quarters = allQ.filter(q2 => dq.RoE?.[bank]?.[q2] != null).slice(-16);
+    let periods;
+    if(isAnnual) {
+      // All years where this bank has RoE data, oldest left
+      const allYears = (DATA.years || []).filter(y => y <= 2025).map(String);
+      periods = allYears.filter(y => dataset.RoE?.[bank]?.[y] != null);
+    } else {
+      const allQ = DATA.quarters || [];
+      periods = allQ.filter(q2 => dataset.RoE?.[bank]?.[q2] != null).slice(-16);
+    }
 
-    html = `<div class="table-wrap"><table class="dupont-table"><thead><tr><th>#</th><th>Line Item</th><th>Op</th>`;
-    quarters.forEach(q2 => { html += `<th>${q2}</th>`; });
+    html = `<p style="color:var(--accent);font-size:13px;margin-bottom:8px;">${bankName(bank)} (${bank}) \u2014 ${isAnnual ? 'Annual' : 'Quarterly'} DuPont</p>`;
+    html += `<div class="table-wrap"><table class="dupont-table"><thead><tr><th>#</th><th>Line Item</th><th>Op</th>`;
+    periods.forEach(p => { html += `<th>${isAnnual ? 'FY'+String(p).slice(-2) : p}</th>`; });
     html += '</tr></thead><tbody>';
 
     let rowNum = 0;
     rows.forEach(r => {
       if(r.sep) {
-        html += '<tr class="separator"><td colspan="' + (3+quarters.length) + '"></td></tr>';
+        html += '<tr class="separator"><td colspan="' + (3+periods.length) + '"></td></tr>';
         return;
       }
       rowNum++;
       const cls = r.green ? 'result' : (r.bold ? 'subtotal' : '');
       html += `<tr class="${cls}"><td>${rowNum}</td><td>${r.label}</td><td>${r.op}</td>`;
-      quarters.forEach(q2 => {
+      periods.forEach(p => {
         const bankData = {};
-        Object.keys(dq).forEach(comp => { bankData[comp] = dq[comp]?.[bank]?.[q2] ?? null; });
+        Object.keys(dataset).forEach(comp => { bankData[comp] = dataset[comp]?.[bank]?.[p] ?? null; });
         const v = getVal(r.src, r.calc, bankData);
         html += `<td>${fmtDupont(v, r.fmt)}</td>`;
       });
@@ -1566,7 +1625,7 @@ function renderAnnualDiveContent() {
     { name: 'Franchise', fmt: 'franchise', metrics: [
       {key:'Branches',label:'Branches',f:'franchise_num'},{key:'Employees',label:'Employees',f:'franchise_num'},
       {key:'CASA PER',label:'CASA %',f:'franchise_pct'},{key:'CD Ratio',label:'CD Ratio %',f:'franchise_pct'},
-      {key:'CASA_per_branch',label:'CASA/Branch (Rs Cr)',f:'abs'},{key:'Avg_emp_cost',label:'Avg Employee Cost',f:'abs'}
+      {key:'CASA_per_branch',label:'CASA/Branch (Rs Cr)',f:'abs'},{key:'Avg_emp_cost',label:'Avg Employee Cost (Rs Mn)',f:'franchise_cost'}
     ]},
     { name: 'Yields & Costs', fmt: 'pct', metrics: [
       {key:'YoA',label:'Yield on Assets (%)'},{key:'CoF',label:'Cost of Funds (%)'},
