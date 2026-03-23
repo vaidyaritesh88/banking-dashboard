@@ -434,22 +434,25 @@ const ANNUAL_NAME_MAP = {
   OBC:'OBC', Syndicate:'Syndicate', United:'United', Vijaya:'Vijaya'
 };
 
-/* Get annual metric value for a bank */
+/* Get annual metric value for a bank. Handles estimate objects {v:number, e:true}. */
 function getAnnualMetric(metricName, ticker, year) {
   const am = DATA.annual_metrics;
   if (!am || !am[metricName]) return null;
   const annualName = ANNUAL_NAME_MAP[ticker];
   if (!annualName || !am[metricName][annualName]) return null;
-  return am[metricName][annualName][String(year)] ?? null;
+  let v = am[metricName][annualName][String(year)] ?? null;
+  if (v != null && typeof v === 'object' && v.v != null) v = v.v; // extract from estimate object
+  return v;
 }
 
-/* Format annual metric value based on metric group */
+/* Format annual metric value based on metric group.
+   P&L and BS data in annual_metrics is in Rs Mn. Display as Rs Cr (÷10). */
 function fmtAnnualVal(v, metric, group) {
   if (v == null || isNaN(v)) return '\u2014';
   if (group === 'pct' || group === 'growth' || group === 'aq_pct' || group === 'capital' || group === 'yields') return v.toFixed(1) + '%';
   if (group === 'mult') return v.toFixed(1) + 'x';
   if (group === 'pershare') return v.toFixed(2);
-  if (group === 'abs') return fmtIndian(Math.round(v));
+  if (group === 'abs') return fmtIndian(Math.round(v / 10)); // Rs Mn -> Rs Cr
   if (group === 'franchise_num') return fmtIndian(Math.round(v));
   if (group === 'franchise_pct') return v.toFixed(1) + '%';
   return typeof v === 'number' ? v.toFixed(2) : String(v);
@@ -457,7 +460,7 @@ function fmtAnnualVal(v, metric, group) {
 
 /* Get last N years from the years list */
 function getLastNYears(n) {
-  const yrs = (DATA.years || []).filter(y => y <= 2024);
+  const yrs = (DATA.years || []).filter(y => y <= 2025);
   return yrs.slice(Math.max(0, yrs.length - n));
 }
 
@@ -1520,7 +1523,7 @@ function renderAnnualDiveContent() {
   if(!am) { document.getElementById('annualdive-content').innerHTML = '<div class="error-msg">Annual metrics not loaded.</div>'; return; }
 
   const ticker = STATE.annualDiveBank;
-  const years = getLastNYears(15).map(String).reverse(); // most recent first
+  const years = getLastNYears(15).map(String); // oldest left, newest right
 
   // Metric groups definition
   const groups = [
