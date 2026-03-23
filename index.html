@@ -456,7 +456,7 @@ function fmtAnnualVal(v, metric, group) {
   if (group === 'abs') return fmtIndian(Math.round(v / 10)); // Rs Mn -> Rs Cr
   if (group === 'franchise_num') return fmtIndian(Math.round(v));
   if (group === 'franchise_pct') return v.toFixed(1) + '%';
-  if (group === 'franchise_cost') return v.toFixed(2); // Rs Mn per employee, display as-is
+  if (group === 'franchise_cost') return (v * 10).toFixed(1); // Rs Mn -> Rs Lakh per employee
   return typeof v === 'number' ? v.toFixed(2) : String(v);
 }
 
@@ -1594,13 +1594,13 @@ function renderAnnualDiveContent() {
     { name: 'P&L (Rs Cr)', fmt: 'abs', metrics: [
       {key:'Interest_income',label:'Interest Income'},{key:'Interest_expense',label:'Interest Expense'},
       {key:'NII',label:'NII'},{key:'Fee income',label:'Fee Income'},{key:'Otherincome',label:'Other Income'},
-      {key:'Revenue',label:'Revenue'},{key:'OpEx',label:'OpEx'},{key:'Staff',label:'Staff Cost'},
-      {key:'PPOP',label:'PPOP'},{key:'LLP',label:'LLP'},{key:'PBT',label:'PBT'},
+      {key:'Total_Income',label:'Total Income (NII + Other)'},{key:'OpEx',label:'OpEx'},{key:'Staff',label:'Staff Cost'},
+      {key:'PPOP',label:'PPOP'},{key:'LLP',label:'Provisions (LLP)'},{key:'PBT',label:'PBT'},
       {key:'Tax',label:'Tax'},{key:'PAT',label:'PAT'}
     ]},
     { name: 'Growth (%)', fmt: 'pct', metrics: [
       {key:'NII_growth',label:'NII Growth'},{key:'PAT_growth',label:'PAT Growth'},
-      {key:'Revenue_growth',label:'Revenue Growth'},{key:'Advances_growth',label:'Advances Growth'},
+      {key:'Advances_growth',label:'Advances Growth'},
       {key:'Deposit growth',label:'Deposit Growth'}
     ]},
     { name: 'Balance Sheet (Rs Cr)', fmt: 'abs', metrics: [
@@ -1625,7 +1625,7 @@ function renderAnnualDiveContent() {
     { name: 'Franchise', fmt: 'franchise', metrics: [
       {key:'Branches',label:'Branches',f:'franchise_num'},{key:'Employees',label:'Employees',f:'franchise_num'},
       {key:'CASA PER',label:'CASA %',f:'franchise_pct'},{key:'CD Ratio',label:'CD Ratio %',f:'franchise_pct'},
-      {key:'CASA_per_branch',label:'CASA/Branch (Rs Cr)',f:'abs'},{key:'Avg_emp_cost',label:'Avg Employee Cost (Rs Mn)',f:'franchise_cost'}
+      {key:'CASA_per_branch',label:'CASA/Branch (Rs Cr)',f:'abs'},{key:'Avg_emp_cost',label:'Avg Employee Cost (Rs Lakh)',f:'franchise_cost'}
     ]},
     { name: 'Yields & Costs', fmt: 'pct', metrics: [
       {key:'YoA',label:'Yield on Assets (%)'},{key:'CoF',label:'Cost of Funds (%)'},
